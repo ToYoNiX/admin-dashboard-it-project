@@ -1,90 +1,273 @@
-import React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 import {
-  SearchIcon,
   SendIcon,
-  PaperclipIcon,
-  MoreVerticalIcon } from
+  MoreVerticalIcon,
+  XIcon } from
 'lucide-react';
-const contacts = [
-{
-  id: 1,
-  name: 'Ahmed Al-Fayed',
-  lastMessage: 'Thank you for the update.',
-  time: '10:42 AM',
-  unread: 0,
-  active: true
-},
-{
-  id: 2,
-  name: 'Fatima Bello',
-  lastMessage: 'When is the deadline for visa renewal?',
-  time: 'Yesterday',
-  unread: 2,
-  active: false
-},
-{
-  id: 3,
-  name: 'Raj Patel',
-  lastMessage: 'I have submitted my transcript.',
-  time: 'Monday',
-  unread: 0,
-  active: false
-}];
+import {
+  closeConversation,
+  listAdvisorConversations,
+  listConversationMessages,
+  sendConversationMessage,
+  startOrGetConversationByStudentIdentifier,
+  type ConversationRecord,
+  type MessageRecord } from
+'../services/messagesService';
 
-export function Messages() {
+interface MessagesProps {
+  advisorId: string;
+}
+
+function formatTimeLabel(timestamp: string | null): string {
+  if (!timestamp) {
+    return '';
+  }
+
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return parsed.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getConversationName(conversation: ConversationRecord): string {
+  return conversation.student_full_name || conversation.student_email;
+}
+
+function getConversationIdLabel(conversation: ConversationRecord): string {
+  if (conversation.student_id) {
+    return conversation.student_id;
+  }
+
+  return conversation.student_email.split('@')[0];
+}
+
+export function Messages({ advisorId }: MessagesProps) {
+  const [newConversationTarget, setNewConversationTarget] = useState('');
+  const [conversations, setConversations] = useState<ConversationRecord[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const [draftMessage, setDraftMessage] = useState('');
+  const [menuConversationId, setMenuConversationId] = useState<string | null>(null);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isStartingConversation, setIsStartingConversation] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const selectedConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === selectedConversationId) ?? null,
+    [conversations, selectedConversationId]
+  );
+
+  const loadConversations = async (preferredConversationId?: string) => {
+    setIsLoadingConversations(true);
+
+    try {
+      const data = await listAdvisorConversations(advisorId);
+      setConversations(data);
+
+      const fallbackId = data[0]?.id ?? null;
+      const nextSelectedId = preferredConversationId ?? selectedConversationId ?? fallbackId;
+      const selectedStillExists = nextSelectedId && data.some((conversation) => conversation.id === nextSelectedId);
+      setSelectedConversationId(selectedStillExists ? nextSelectedId : fallbackId);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Failed to load conversations.';
+      setErrorMessage(message);
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  };
+
+  const loadMessages = async (conversationId: string) => {
+    setIsLoadingMessages(true);
+
+    try {
+      const data = await listConversationMessages(advisorId, conversationId);
+      setMessages(data);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Failed to load messages.';
+      setErrorMessage(message);
+      setMessages([]);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  useEffect(() => {
+    setErrorMessage(null);
+    void loadConversations();
+  }, [advisorId]);
+
+  useEffect(() => {
+    setErrorMessage(null);
+    if (!selectedConversationId) {
+      setMessages([]);
+      return;
+    }
+
+    void loadMessages(selectedConversationId);
+  }, [advisorId, selectedConversationId]);
+
+  const handleStartConversation = async () => {
+    setErrorMessage(null);
+
+    if (!newConversationTarget.trim()) {
+      setErrorMessage('Enter a student email or ID to start a conversation.');
+      return;
+    }
+
+    try {
+      setIsStartingConversation(true);
+      const conversation = await startOrGetConversationByStudentIdentifier(advisorId, newConversationTarget);
+      setNewConversationTarget('');
+      await loadConversations(conversation.id);
+      await loadMessages(conversation.id);
+    } catch (startError) {
+      const message = startError instanceof Error ? startError.message : 'Failed to start conversation.';
+      if (message.toLowerCase().includes('student not found')) {
+        setToastMessage('Student not found. Please enter a valid student ID or email.');
+      } else {
+        setErrorMessage(message);
+      }
+    } finally {
+      setIsStartingConversation(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedConversation) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      setIsSendingMessage(true);
+      await sendConversationMessage(advisorId, selectedConversation.id, draftMessage);
+      setDraftMessage('');
+      await loadConversations(selectedConversation.id);
+      await loadMessages(selectedConversation.id);
+    } catch (sendError) {
+      const message = sendError instanceof Error ? sendError.message : 'Failed to send message.';
+      setErrorMessage(message);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  const handleCloseConversation = async () => {
+    if (!selectedConversation) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setMenuConversationId(null);
+
+    try {
+      await closeConversation(advisorId, selectedConversation.id);
+      await loadConversations(selectedConversation.id);
+    } catch (closeError) {
+      const message = closeError instanceof Error ? closeError.message : 'Failed to close conversation.';
+      setErrorMessage(message);
+    }
+  };
+
+  const isCurrentConversationClosed = selectedConversation?.status === 'closed';
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setToastMessage(null), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [toastMessage]);
+
   return (
     <div className="h-[calc(100vh-140px)] animate-in fade-in duration-500 flex flex-col">
       <h1 className="text-2xl font-bold text-must-text-primary mb-4 shrink-0">
         Messages
       </h1>
 
+      {errorMessage ?
+      <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errorMessage}
+        </div> :
+      null}
+
+      {toastMessage ?
+      <div className="fixed right-6 top-20 z-[60] rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-lg">
+          {toastMessage}
+        </div> :
+      null}
+
       <Card className="flex-1 flex overflow-hidden">
-        {/* Contacts List */}
         <div className="w-full md:w-1/3 border-r border-must-border flex flex-col bg-must-surface">
-          <div className="p-4 border-b border-must-border">
+          <div className="p-4 border-b border-must-border space-y-3">
             <Input
-              placeholder="Search messages..."
-              icon={<SearchIcon className="w-4 h-4" />} />
+              value={newConversationTarget}
+              onChange={(event) => setNewConversationTarget(event.target.value)}
+              placeholder="Student email or ID"
+              disabled={isStartingConversation} />
+
+            <Button
+              onClick={() => {
+                void handleStartConversation();
+              }}
+              disabled={isStartingConversation || !newConversationTarget.trim()}
+              className="w-full inline-flex items-center justify-center gap-2">
+
+              {isStartingConversation ?
+              <XIcon className="w-4 h-4" /> :
+              null}
+              {isStartingConversation ? 'Starting...' : 'Start Conversation'}
+            </Button>
 
           </div>
           <div className="flex-1 overflow-y-auto scrollbar-custom">
-            {contacts.map((contact) =>
+            {isLoadingConversations ?
+            <p className="p-4 text-sm text-must-text-secondary">Loading conversations...</p> :
+            null}
+
+            {!isLoadingConversations && conversations.length === 0 ?
+            <p className="p-4 text-sm text-must-text-secondary">
+                No conversations yet. Start one using a student email or ID.
+              </p> :
+            null}
+
+            {conversations.map((conversation) =>
             <div
-              key={contact.id}
-              className={`p-4 border-b border-must-border cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${contact.active ? 'bg-slate-50 dark:bg-slate-800/80' : ''}`}>
+              key={conversation.id}
+              onClick={() => setSelectedConversationId(conversation.id)}
+              className={`p-4 border-b border-must-border cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${selectedConversationId === conversation.id ? 'bg-slate-50 dark:bg-slate-800/80' : ''}`}>
 
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-must-navy text-white flex items-center justify-center font-bold">
-                      {contact.name.charAt(0)}
-                    </div>
-                    {contact.active &&
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                  }
+                  <div className="w-10 h-10 rounded-full bg-must-navy text-white flex items-center justify-center font-bold">
+                    {getConversationName(conversation).charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-1">
                       <h3 className="font-semibold text-sm text-must-text-primary truncate">
-                        {contact.name}
+                        {getConversationName(conversation)} ({getConversationIdLabel(conversation)})
                       </h3>
                       <span className="text-xs text-must-text-secondary shrink-0">
-                        {contact.time}
+                        {formatTimeLabel(conversation.last_message_at)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <p
-                      className={`text-sm truncate ${contact.unread > 0 ? 'font-semibold text-must-text-primary' : 'text-must-text-secondary'}`}>
-
-                        {contact.lastMessage}
-                      </p>
-                      {contact.unread > 0 &&
-                    <span className="bg-must-green text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
-                          {contact.unread}
-                        </span>
-                    }
-                    </div>
+                    <p className="text-sm truncate text-must-text-secondary">
+                      {conversation.last_message_text || 'No messages yet.'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -92,84 +275,111 @@ export function Messages() {
           </div>
         </div>
 
-        {/* Chat Area */}
         <div className="hidden md:flex flex-1 flex-col bg-slate-50 dark:bg-[#0f172a]">
-          {/* Chat Header */}
+          {!selectedConversation ?
+          <div className="h-full flex items-center justify-center text-must-text-secondary text-sm px-6 text-center">
+              Select or start a conversation to view messages.
+            </div> :
+          <>
           <div className="h-16 border-b border-must-border bg-must-surface flex items-center justify-between px-6 shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-must-navy text-white flex items-center justify-center font-bold">
-                A
+                {getConversationName(selectedConversation).charAt(0).toUpperCase()}
               </div>
               <div>
                 <h2 className="font-semibold text-must-text-primary">
-                  Ahmed Al-Fayed
+                  {getConversationName(selectedConversation)}
                 </h2>
-                <p className="text-xs text-green-500">Online</p>
+                <p className="text-xs text-must-text-secondary">{selectedConversation.student_email}</p>
               </div>
             </div>
-            <button className="p-2 text-must-text-secondary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
-              <MoreVerticalIcon className="w-5 h-5" />
-            </button>
+
+            <div className="relative">
+              <button
+                onClick={() => setMenuConversationId((current) =>
+                current === selectedConversation.id ? null : selectedConversation.id
+                )}
+                className="p-2 text-must-text-secondary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+
+                <MoreVerticalIcon className="w-5 h-5" />
+              </button>
+
+              {menuConversationId === selectedConversation.id ?
+              <div className="absolute right-0 mt-2 w-48 rounded-md border border-must-border bg-must-surface shadow-lg z-20">
+                  <button
+                    onClick={() => {
+                      void handleCloseConversation();
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-must-text-primary hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60"
+                    disabled={isCurrentConversationClosed}>
+
+                    {isCurrentConversationClosed ? 'Conversation Closed' : 'Close Conversation'}
+                  </button>
+                </div> :
+              null}
+            </div>
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-custom">
-            <div className="flex justify-center">
-              <span className="text-xs font-medium text-must-text-secondary bg-must-surface px-3 py-1 rounded-full border border-must-border shadow-sm">
-                Today
-              </span>
-            </div>
+            {isLoadingMessages ?
+            <p className="text-sm text-must-text-secondary">Loading messages...</p> :
+            null}
 
-            <div className="flex justify-start">
-              <div className="bg-must-surface border border-must-border text-must-text-primary rounded-2xl rounded-tl-sm px-4 py-2 max-w-[70%] shadow-sm">
-                <p className="text-sm">
-                  Hello Advisor, I wanted to ask about the enrollment letter
-                  process.
-                </p>
-                <span className="text-[10px] text-must-text-secondary mt-1 block text-right">
-                  10:30 AM
-                </span>
-              </div>
-            </div>
+            {!isLoadingMessages && messages.length === 0 ?
+            <p className="text-sm text-must-text-secondary">No messages yet. Send the first message below.</p> :
+            null}
 
-            <div className="flex justify-end">
-              <div className="bg-must-navy text-white rounded-2xl rounded-tr-sm px-4 py-2 max-w-[70%] shadow-sm">
-                <p className="text-sm">
-                  Hi Ahmed. You can request it through the Requests tab. It
-                  usually takes 2-3 business days to process.
-                </p>
-                <span className="text-[10px] text-blue-200 mt-1 block text-right">
-                  10:35 AM
-                </span>
-              </div>
-            </div>
+            {messages.map((message) => {
+              const sentByAdvisor = message.sender_role === 'advisor';
 
-            <div className="flex justify-start">
-              <div className="bg-must-surface border border-must-border text-must-text-primary rounded-2xl rounded-tl-sm px-4 py-2 max-w-[70%] shadow-sm">
-                <p className="text-sm">Thank you for the update.</p>
-                <span className="text-[10px] text-must-text-secondary mt-1 block text-right">
-                  10:42 AM
-                </span>
-              </div>
-            </div>
+              return (
+                <div key={message.id} className={`flex ${sentByAdvisor ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`rounded-2xl px-4 py-2 max-w-[70%] shadow-sm ${sentByAdvisor ? 'bg-must-navy text-white rounded-tr-sm' : 'bg-must-surface border border-must-border text-must-text-primary rounded-tl-sm'}`}>
+
+                    <p className="text-sm whitespace-pre-wrap">{message.message_text}</p>
+                    <span
+                      className={`text-[10px] mt-1 block text-right ${sentByAdvisor ? 'text-blue-200' : 'text-must-text-secondary'}`}>
+
+                      {formatTimeLabel(message.created_at)}
+                    </span>
+                  </div>
+                </div>);
+            })}
           </div>
 
-          {/* Input Area */}
           <div className="p-4 bg-must-surface border-t border-must-border shrink-0">
             <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-must-border rounded-full px-4 py-2">
-              <button className="text-must-text-secondary hover:text-must-navy transition-colors">
-                <PaperclipIcon className="w-5 h-5" />
-              </button>
               <input
                 type="text"
                 placeholder="Type a message..."
-                className="flex-1 bg-transparent outline-none text-sm text-must-text-primary px-2" />
+                value={draftMessage}
+                onChange={(event) => setDraftMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void handleSendMessage();
+                  }
+                }}
+                className="flex-1 bg-transparent outline-none text-sm text-must-text-primary px-2"
+                disabled={!selectedConversation || isCurrentConversationClosed || isSendingMessage} />
 
-              <button className="w-8 h-8 bg-must-green text-white rounded-full flex items-center justify-center hover:bg-green-700 transition-colors shrink-0">
+              <button
+                onClick={() => {
+                  void handleSendMessage();
+                }}
+                disabled={!selectedConversation || !draftMessage.trim() || isCurrentConversationClosed || isSendingMessage}
+                className="w-8 h-8 bg-must-green text-white rounded-full flex items-center justify-center hover:bg-green-700 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+
                 <SendIcon className="w-4 h-4 ml-0.5" />
               </button>
             </div>
+            {isCurrentConversationClosed ?
+            <p className="mt-2 text-xs text-amber-700">This conversation is closed. Start a new conversation or reopen it by starting again.</p> :
+            null}
           </div>
+          </>
+          }
         </div>
       </Card>
     </div>);

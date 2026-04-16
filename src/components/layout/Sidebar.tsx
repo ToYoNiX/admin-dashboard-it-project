@@ -1,28 +1,33 @@
-import React from 'react';
 import {
   LayoutDashboardIcon,
   UsersIcon,
-  FileTextIcon,
+  BriefcaseIcon,
+  NewspaperIcon,
+  CalendarRangeIcon,
+  BookCopyIcon,
   CalendarIcon,
-  MegaphoneIcon,
-  BarChart3Icon,
   MessageSquareIcon,
-  FolderIcon,
-  SettingsIcon,
+  ImagesIcon,
+  GraduationCapIcon,
+  SchoolIcon,
+  ShieldCheckIcon,
   ChevronLeftIcon,
-  ChevronRightIcon } from
+  ChevronRightIcon,
+  PartyPopperIcon } from
 'lucide-react';
 interface SidebarProps {
   activePage: string;
   onPageChange: (page: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  isSuperAdmin: boolean;
 }
 export function Sidebar({
   activePage,
   onPageChange,
   collapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  isSuperAdmin
 }: SidebarProps) {
   const menuItems = [
   {
@@ -35,10 +40,45 @@ export function Sidebar({
     icon: UsersIcon,
     label: 'Students'
   },
+    {
+    id: 'Activities',
+    icon: PartyPopperIcon,
+    label: 'Activities'
+  },
+    {
+      id: 'Gallery',
+      icon: ImagesIcon,
+      label: 'Photo Gallery'
+    },
+    {
+      id: 'Advisor Resources',
+      icon: GraduationCapIcon,
+      label: 'Advisor Resources'
+    },
+    {
+      id: 'Student Resources',
+      icon: SchoolIcon,
+      label: 'Student Resources'
+    },
   {
-    id: 'Requests',
-    icon: FileTextIcon,
-    label: 'Requests'
+    id: 'Staff',
+    icon: BriefcaseIcon,
+    label: 'Academic Staff'
+  },
+  {
+    id: 'News',
+    icon: NewspaperIcon,
+    label: 'News'
+  },
+  {
+    id: 'Events',
+    icon: CalendarRangeIcon,
+    label: 'Events'
+  },
+  {
+    id: 'Study Plans',
+    icon: BookCopyIcon,
+    label: 'Study Plans'
   },
   {
     id: 'Schedules',
@@ -46,30 +86,20 @@ export function Sidebar({
     label: 'Schedules'
   },
   {
-    id: 'Announcements',
-    icon: MegaphoneIcon,
-    label: 'Announcements'
-  },
-  {
-    id: 'Reports',
-    icon: BarChart3Icon,
-    label: 'Reports'
+    id: 'Calendars',
+    icon: CalendarRangeIcon,
+    label: 'Calendars'
   },
   {
     id: 'Messages',
     icon: MessageSquareIcon,
     label: 'Messages'
   },
-  {
-    id: 'Documents',
-    icon: FolderIcon,
-    label: 'Documents'
-  },
-  {
-    id: 'Settings',
-    icon: SettingsIcon,
-    label: 'Settings'
-  }];
+  ...(isSuperAdmin ? [{
+    id: 'Manage Advisors',
+    icon: ShieldCheckIcon,
+    label: 'Manage Advisors'
+  }] : [])];
 
   return (
     <aside

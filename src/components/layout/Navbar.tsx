@@ -1,22 +1,47 @@
-import React from 'react';
 import {
-  SearchIcon,
   BellIcon,
   MenuIcon,
+  LogOutIcon,
   MoonIcon,
   SunIcon,
-  GlobeIcon } from
+  SettingsIcon } from
 'lucide-react';
+import { useState } from 'react';
 interface NavbarProps {
   onToggleSidebar: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  userName: string;
+  userAvatarUrl?: string | null;
+  unreadMessagesCount: number;
+  onClearNotifications: () => void;
+  onOpenSettings: () => void;
+  onLogout: () => void;
+  isLoggingOut?: boolean;
 }
 export function Navbar({
   onToggleSidebar,
   darkMode,
-  onToggleDarkMode
+  onToggleDarkMode,
+  userName,
+  userAvatarUrl,
+  unreadMessagesCount,
+  onClearNotifications,
+  onOpenSettings,
+  onLogout,
+  isLoggingOut = false
 }: NavbarProps) {
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  const initials =
+  userName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') ||
+  'AD';
+
   return (
     <header className="h-16 bg-[#0D1B3E] text-white sticky top-0 z-50 flex items-center justify-between px-4 shadow-md">
       <div className="flex items-center gap-4">
@@ -44,17 +69,6 @@ export function Navbar({
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <div className="hidden sm:flex items-center gap-1.5 text-xs font-semibold bg-white/10 rounded-full px-3 py-1.5 cursor-pointer hover:bg-white/20 transition-colors">
-          <GlobeIcon className="w-3.5 h-3.5 text-teal-300" />
-          <span className="text-white">EN</span>
-          <span className="text-gray-400 mx-0.5">|</span>
-          <span className="text-gray-400 hover:text-white">AR</span>
-        </div>
-
-        <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-          <SearchIcon className="w-5 h-5" />
-        </button>
-
         <button
           onClick={onToggleDarkMode}
           className="p-2 hover:bg-white/10 rounded-full transition-colors">
@@ -66,15 +80,75 @@ export function Navbar({
           }
         </button>
 
-        <button className="p-2 hover:bg-white/10 rounded-full transition-colors relative">
-          <BellIcon className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0D1B3E]"></span>
+        <div className="relative">
+          <button
+            onClick={() => setIsNotificationsOpen((current) => !current)}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors relative"
+            title="Notifications">
+
+            <BellIcon className="w-5 h-5" />
+            {unreadMessagesCount > 0 ?
+            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center border-2 border-[#0D1B3E]">
+                {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+              </span> :
+            null}
+          </button>
+
+          {isNotificationsOpen ?
+          <div className="absolute right-0 mt-2 w-72 rounded-lg border border-must-border bg-must-surface shadow-lg z-30 text-must-text-primary">
+              <div className="px-4 py-3 border-b border-must-border">
+                <p className="text-sm font-semibold">Message Notifications</p>
+                <p className="text-xs text-must-text-secondary mt-1">
+                  {unreadMessagesCount === 0 ? 'No unread messages.' : `${unreadMessagesCount} unread student message${unreadMessagesCount === 1 ? '' : 's'}.`}
+                </p>
+              </div>
+              <div className="p-3">
+                <button
+                  onClick={() => {
+                    onClearNotifications();
+                    setIsNotificationsOpen(false);
+                  }}
+                  className="w-full px-3 py-2 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-sm font-medium transition-colors">
+
+                  Clear Notifications
+                </button>
+              </div>
+            </div> :
+          null}
+        </div>
+        <button
+          onClick={onOpenSettings}
+          title="Open Settings"
+          className="p-2 hover:bg-white/10 rounded-full transition-colors">
+
+          <SettingsIcon className="w-5 h-5" />
         </button>
 
-        <div className="w-9 h-9 rounded-full bg-must-green flex items-center justify-center text-sm font-bold border-2 border-white/20 cursor-pointer ml-1">
-          AD
+        <ButtonLogout onLogout={onLogout} isLoggingOut={isLoggingOut} />
+        <div className="w-9 h-9 rounded-full bg-must-green text-white flex items-center justify-center text-sm font-bold border-2 border-white/20 ml-1 overflow-hidden">
+          {userAvatarUrl ?
+          <img src={userAvatarUrl} alt="Advisor avatar" className="w-full h-full object-cover" /> :
+          initials}
         </div>
       </div>
     </header>);
+
+}
+
+interface ButtonLogoutProps {
+  onLogout: () => void;
+  isLoggingOut: boolean;
+}
+
+function ButtonLogout({ onLogout, isLoggingOut }: ButtonLogoutProps) {
+  return (
+    <button
+      onClick={onLogout}
+      disabled={isLoggingOut}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-60">
+
+      <LogOutIcon className="w-3.5 h-3.5" />
+      {isLoggingOut ? 'Logging out...' : 'Logout'}
+    </button>);
 
 }
