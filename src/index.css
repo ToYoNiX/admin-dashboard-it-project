@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    --must-navy: #0D1B3E;
+    --must-green: #1B8A3D;
+    --must-gold: #C5A55A;
+    --must-bg: #F4F6F9;
+    --must-surface: #FFFFFF;
+    --must-text-primary: #0D1B3E;
+    --must-text-secondary: #64748B;
+    --must-border: #E2E8F0;
+    --status-pending: #F59E0B;
+    --status-approved: #1B8A3D;
+    --status-rejected: #DC2626;
+  }
+  .dark {
+    --must-navy: #1E293B;
+    --must-green: #22C55E;
+    --must-gold: #FBBF24;
+    --must-bg: #111827;
+    --must-surface: #1F2937;
+    --must-text-primary: #F9FAFB;
+    --must-text-secondary: #9CA3AF;
+    --must-border: #374151;
+  }
+  body {
+    @apply bg-[var(--must-bg)] text-[var(--must-text-primary)] font-poppins antialiased transition-colors duration-200;
+  }
+}
+@layer utilities {
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-600 rounded-full;
+  }
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400 dark:bg-slate-500;
+  }
+}
