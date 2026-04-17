@@ -30,6 +30,7 @@ interface StaffFormData {
   title: string;
   firstName: string;
   lastName: string;
+  department: string;
   position: string;
   speciality: string;
   googleScholarLink: string;
@@ -39,6 +40,7 @@ const initialFormData: StaffFormData = {
   title: '',
   firstName: '',
   lastName: '',
+  department: '',
   position: '',
   speciality: '',
   googleScholarLink: ''
@@ -111,6 +113,7 @@ export function Staff() {
       title: record.title,
       firstName: record.first_name,
       lastName: record.last_name,
+      department: record.department ?? '',
       position: record.position,
       speciality: record.speciality,
       googleScholarLink: record.google_scholar_link ?? ''
@@ -245,6 +248,14 @@ export function Staff() {
                 value={formData.position}
                 onChange={handleInputChange}
                 placeholder="e.g. Assistant Professor"
+                required
+              />
+              <Input
+                label="Department"
+                name="department"
+                value={formData.department}
+                onChange={handleInputChange}
+                placeholder="e.g. Computer Science"
                 required
               />
               <Input
@@ -386,6 +397,7 @@ export function Staff() {
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-must-text-primary truncate">{fullName}</h3>
                         <p className="text-sm text-must-text-secondary truncate">{record.position}</p>
+                        <p className="text-xs text-must-text-secondary mt-1 truncate">Department: {record.department || 'N/A'}</p>
                         <p className="text-xs text-must-text-secondary mt-1 truncate">{record.speciality}</p>
                       </div>
 

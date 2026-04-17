@@ -113,9 +113,12 @@ create table if not exists public.photo_gallery (
 create table if not exists public.advisor_resources (
   id uuid primary key default gen_random_uuid(),
   title text not null,
+  description text,
   resource_type text not null,
   resource_url text,
   file_path text,
+  duration text,
+  thumbnail_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint advisor_resources_title_not_blank check (length(trim(title)) > 0),
@@ -130,10 +133,13 @@ create table if not exists public.advisor_resources (
 create table if not exists public.student_resources (
   id uuid primary key default gen_random_uuid(),
   title text not null,
+  description text,
   category text not null default 'Other / Untagged',
   resource_type text not null,
   resource_url text,
   file_path text,
+  duration text,
+  thumbnail_path text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint student_resources_title_not_blank check (length(trim(title)) > 0),
@@ -164,6 +170,27 @@ create table if not exists public.students (
   constraint students_level_not_blank check (length(trim(level)) > 0),
   constraint students_gpa_valid check (gpa is null or (gpa >= 0 and gpa <= 4))
 );
+
+alter table if exists public.staff
+add column if not exists department text;
+
+alter table if exists public.advisor_resources
+add column if not exists description text;
+
+alter table if exists public.advisor_resources
+add column if not exists duration text;
+
+alter table if exists public.advisor_resources
+add column if not exists thumbnail_path text;
+
+alter table if exists public.student_resources
+add column if not exists description text;
+
+alter table if exists public.student_resources
+add column if not exists duration text;
+
+alter table if exists public.student_resources
+add column if not exists thumbnail_path text;
 
 alter table public.schedules
 add column if not exists file_path text;
@@ -395,6 +422,22 @@ drop policy if exists photo_gallery_delete_anon on public.photo_gallery;
 create policy photo_gallery_delete_anon on public.photo_gallery
 for delete to anon using (true);
 
+drop policy if exists photo_gallery_select_authenticated on public.photo_gallery;
+create policy photo_gallery_select_authenticated on public.photo_gallery
+for select to authenticated using (true);
+
+drop policy if exists photo_gallery_insert_authenticated on public.photo_gallery;
+create policy photo_gallery_insert_authenticated on public.photo_gallery
+for insert to authenticated with check (true);
+
+drop policy if exists photo_gallery_update_authenticated on public.photo_gallery;
+create policy photo_gallery_update_authenticated on public.photo_gallery
+for update to authenticated using (true) with check (true);
+
+drop policy if exists photo_gallery_delete_authenticated on public.photo_gallery;
+create policy photo_gallery_delete_authenticated on public.photo_gallery
+for delete to authenticated using (true);
+
 drop policy if exists advisor_resources_select_anon on public.advisor_resources;
 create policy advisor_resources_select_anon on public.advisor_resources
 for select to anon using (true);
@@ -462,6 +505,8 @@ for delete to authenticated using (true);
 -- Storage buckets
 insert into storage.buckets (id, name, public)
 values
+  ('staff-cv', 'staff-cv', true),
+  ('staff-images', 'staff-images', true),
   ('news-images', 'news-images', true),
   ('event-images', 'event-images', true),
   ('study-plan-files', 'study-plan-files', true),
@@ -471,6 +516,62 @@ values
   ('gallery-images', 'gallery-images', true),
   ('resources-files', 'resources-files', true)
 on conflict (id) do nothing;
+
+update storage.buckets
+set public = true
+where id in (
+  'staff-cv',
+  'staff-images',
+  'news-images',
+  'event-images',
+  'study-plan-files',
+  'schedule-files',
+  'calendar-files',
+  'activity-images',
+  'gallery-images',
+  'resources-files',
+  'advisor-avatars'
+);
+
+drop policy if exists storage_project_files_select_anon on storage.objects;
+create policy storage_project_files_select_anon
+on storage.objects
+for select to anon
+using (
+  bucket_id in (
+    'staff-cv',
+    'staff-images',
+    'news-images',
+    'event-images',
+    'study-plan-files',
+    'schedule-files',
+    'calendar-files',
+    'activity-images',
+    'gallery-images',
+    'resources-files',
+    'advisor-avatars'
+  )
+);
+
+drop policy if exists storage_project_files_select_authenticated on storage.objects;
+create policy storage_project_files_select_authenticated
+on storage.objects
+for select to authenticated
+using (
+  bucket_id in (
+    'staff-cv',
+    'staff-images',
+    'news-images',
+    'event-images',
+    'study-plan-files',
+    'schedule-files',
+    'calendar-files',
+    'activity-images',
+    'gallery-images',
+    'resources-files',
+    'advisor-avatars'
+  )
+);
 
 -- Storage upload policies with server-side mime/size checks.
 drop policy if exists storage_news_images_insert_anon on storage.objects;
@@ -638,6 +739,29 @@ on storage.objects
 for delete to anon
 using (bucket_id = 'gallery-images');
 
+drop policy if exists storage_gallery_images_insert_authenticated on storage.objects;
+create policy storage_gallery_images_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'gallery-images'
+  and (metadata->>'mimetype') in ('image/jpeg', 'image/png', 'image/webp')
+  and coalesce((metadata->>'size')::bigint, 0) <= 8 * 1024 * 1024
+  and name ~ '^gallery/.+/.+'
+);
+
+drop policy if exists storage_gallery_images_select_authenticated on storage.objects;
+create policy storage_gallery_images_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'gallery-images');
+
+drop policy if exists storage_gallery_images_delete_authenticated on storage.objects;
+create policy storage_gallery_images_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'gallery-images');
+
 drop policy if exists storage_resources_files_insert_anon on storage.objects;
 create policy storage_resources_files_insert_anon
 on storage.objects
@@ -654,6 +778,9 @@ with check (
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/zip',
     'text/plain',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
     'video/mp4',
     'video/webm',
     'video/quicktime'
@@ -950,6 +1077,11 @@ grant execute on function public.is_super_admin(uuid) to authenticated;
 alter table public.advisor_profiles enable row level security;
 alter table public.advisor_invites enable row level security;
 
+drop policy if exists advisor_profiles_select_anon on public.advisor_profiles;
+create policy advisor_profiles_select_anon on public.advisor_profiles
+for select to anon
+using (true);
+
 drop policy if exists advisor_profiles_select_self on public.advisor_profiles;
 create policy advisor_profiles_select_self on public.advisor_profiles
 for select to authenticated
@@ -1054,6 +1186,12 @@ using (
   )
 );
 
+drop policy if exists storage_advisor_avatars_select_anon on storage.objects;
+create policy storage_advisor_avatars_select_anon
+on storage.objects
+for select to anon
+using (bucket_id = 'advisor-avatars');
+
 -- Advisor <-> Student messaging
 create table if not exists public.advisor_student_conversations (
   id uuid primary key default gen_random_uuid(),
@@ -1102,6 +1240,11 @@ create policy advisor_student_conversations_select_owner on public.advisor_stude
 for select to authenticated
 using (advisor_id = auth.uid());
 
+drop policy if exists advisor_student_conversations_select_anon on public.advisor_student_conversations;
+create policy advisor_student_conversations_select_anon on public.advisor_student_conversations
+for select to anon
+using (true);
+
 drop policy if exists advisor_student_conversations_insert_owner on public.advisor_student_conversations;
 create policy advisor_student_conversations_insert_owner on public.advisor_student_conversations
 for insert to authenticated
@@ -1130,6 +1273,11 @@ using (
   )
 );
 
+drop policy if exists conversation_messages_select_anon on public.conversation_messages;
+create policy conversation_messages_select_anon on public.conversation_messages
+for select to anon
+using (true);
+
 drop policy if exists conversation_messages_insert_owner on public.conversation_messages;
 create policy conversation_messages_insert_owner on public.conversation_messages
 for insert to authenticated
@@ -1144,3 +1292,370 @@ with check (
       and c.status = 'open'
   )
 );
+
+-- Dashboard authenticated access policies
+-- These allow logged-in advisors to manage dashboard content without RLS upload/read failures.
+
+drop policy if exists news_select_authenticated on public.news;
+create policy news_select_authenticated on public.news
+for select to authenticated using (true);
+
+drop policy if exists news_insert_authenticated on public.news;
+create policy news_insert_authenticated on public.news
+for insert to authenticated with check (true);
+
+drop policy if exists news_update_authenticated on public.news;
+create policy news_update_authenticated on public.news
+for update to authenticated using (true) with check (true);
+
+drop policy if exists news_delete_authenticated on public.news;
+create policy news_delete_authenticated on public.news
+for delete to authenticated using (true);
+
+drop policy if exists events_select_authenticated on public.events;
+create policy events_select_authenticated on public.events
+for select to authenticated using (true);
+
+drop policy if exists events_insert_authenticated on public.events;
+create policy events_insert_authenticated on public.events
+for insert to authenticated with check (true);
+
+drop policy if exists events_update_authenticated on public.events;
+create policy events_update_authenticated on public.events
+for update to authenticated using (true) with check (true);
+
+drop policy if exists events_delete_authenticated on public.events;
+create policy events_delete_authenticated on public.events
+for delete to authenticated using (true);
+
+drop policy if exists study_plans_select_authenticated on public.study_plans;
+create policy study_plans_select_authenticated on public.study_plans
+for select to authenticated using (true);
+
+drop policy if exists study_plans_insert_authenticated on public.study_plans;
+create policy study_plans_insert_authenticated on public.study_plans
+for insert to authenticated with check (true);
+
+drop policy if exists study_plans_update_authenticated on public.study_plans;
+create policy study_plans_update_authenticated on public.study_plans
+for update to authenticated using (true) with check (true);
+
+drop policy if exists study_plans_delete_authenticated on public.study_plans;
+create policy study_plans_delete_authenticated on public.study_plans
+for delete to authenticated using (true);
+
+drop policy if exists schedules_select_authenticated on public.schedules;
+create policy schedules_select_authenticated on public.schedules
+for select to authenticated using (true);
+
+drop policy if exists schedules_insert_authenticated on public.schedules;
+create policy schedules_insert_authenticated on public.schedules
+for insert to authenticated with check (true);
+
+drop policy if exists schedules_update_authenticated on public.schedules;
+create policy schedules_update_authenticated on public.schedules
+for update to authenticated using (true) with check (true);
+
+drop policy if exists schedules_delete_authenticated on public.schedules;
+create policy schedules_delete_authenticated on public.schedules
+for delete to authenticated using (true);
+
+drop policy if exists calendars_select_authenticated on public.calendars;
+create policy calendars_select_authenticated on public.calendars
+for select to authenticated using (true);
+
+drop policy if exists calendars_insert_authenticated on public.calendars;
+create policy calendars_insert_authenticated on public.calendars
+for insert to authenticated with check (true);
+
+drop policy if exists calendars_update_authenticated on public.calendars;
+create policy calendars_update_authenticated on public.calendars
+for update to authenticated using (true) with check (true);
+
+drop policy if exists calendars_delete_authenticated on public.calendars;
+create policy calendars_delete_authenticated on public.calendars
+for delete to authenticated using (true);
+
+drop policy if exists activities_select_authenticated on public.activities;
+create policy activities_select_authenticated on public.activities
+for select to authenticated using (true);
+
+drop policy if exists activities_insert_authenticated on public.activities;
+create policy activities_insert_authenticated on public.activities
+for insert to authenticated with check (true);
+
+drop policy if exists activities_update_authenticated on public.activities;
+create policy activities_update_authenticated on public.activities
+for update to authenticated using (true) with check (true);
+
+drop policy if exists activities_delete_authenticated on public.activities;
+create policy activities_delete_authenticated on public.activities
+for delete to authenticated using (true);
+
+drop policy if exists advisor_resources_select_authenticated on public.advisor_resources;
+create policy advisor_resources_select_authenticated on public.advisor_resources
+for select to authenticated using (true);
+
+drop policy if exists advisor_resources_insert_authenticated on public.advisor_resources;
+create policy advisor_resources_insert_authenticated on public.advisor_resources
+for insert to authenticated with check (true);
+
+drop policy if exists advisor_resources_update_authenticated on public.advisor_resources;
+create policy advisor_resources_update_authenticated on public.advisor_resources
+for update to authenticated using (true) with check (true);
+
+drop policy if exists advisor_resources_delete_authenticated on public.advisor_resources;
+create policy advisor_resources_delete_authenticated on public.advisor_resources
+for delete to authenticated using (true);
+
+drop policy if exists student_resources_select_authenticated on public.student_resources;
+create policy student_resources_select_authenticated on public.student_resources
+for select to authenticated using (true);
+
+drop policy if exists student_resources_insert_authenticated on public.student_resources;
+create policy student_resources_insert_authenticated on public.student_resources
+for insert to authenticated with check (true);
+
+drop policy if exists student_resources_update_authenticated on public.student_resources;
+create policy student_resources_update_authenticated on public.student_resources
+for update to authenticated using (true) with check (true);
+
+drop policy if exists student_resources_delete_authenticated on public.student_resources;
+create policy student_resources_delete_authenticated on public.student_resources
+for delete to authenticated using (true);
+
+drop policy if exists photo_gallery_select_authenticated on public.photo_gallery;
+create policy photo_gallery_select_authenticated on public.photo_gallery
+for select to authenticated using (true);
+
+drop policy if exists photo_gallery_insert_authenticated on public.photo_gallery;
+create policy photo_gallery_insert_authenticated on public.photo_gallery
+for insert to authenticated with check (true);
+
+drop policy if exists photo_gallery_update_authenticated on public.photo_gallery;
+create policy photo_gallery_update_authenticated on public.photo_gallery
+for update to authenticated using (true) with check (true);
+
+drop policy if exists photo_gallery_delete_authenticated on public.photo_gallery;
+create policy photo_gallery_delete_authenticated on public.photo_gallery
+for delete to authenticated using (true);
+
+drop policy if exists students_select_authenticated on public.students;
+create policy students_select_authenticated on public.students
+for select to authenticated using (true);
+
+drop policy if exists students_insert_authenticated on public.students;
+create policy students_insert_authenticated on public.students
+for insert to authenticated with check (true);
+
+drop policy if exists students_update_authenticated on public.students;
+create policy students_update_authenticated on public.students
+for update to authenticated using (true) with check (true);
+
+drop policy if exists students_delete_authenticated on public.students;
+create policy students_delete_authenticated on public.students
+for delete to authenticated using (true);
+
+drop policy if exists storage_news_images_insert_authenticated on storage.objects;
+create policy storage_news_images_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'news-images'
+  and (metadata->>'mimetype') in ('image/jpeg', 'image/png', 'image/webp')
+  and coalesce((metadata->>'size')::bigint, 0) <= 5 * 1024 * 1024
+  and name ~ '^news/.+/.+'
+);
+
+drop policy if exists storage_news_images_select_authenticated on storage.objects;
+create policy storage_news_images_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'news-images');
+
+drop policy if exists storage_news_images_delete_authenticated on storage.objects;
+create policy storage_news_images_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'news-images');
+
+drop policy if exists storage_event_images_insert_authenticated on storage.objects;
+create policy storage_event_images_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'event-images'
+  and (metadata->>'mimetype') in ('image/jpeg', 'image/png', 'image/webp')
+  and coalesce((metadata->>'size')::bigint, 0) <= 5 * 1024 * 1024
+  and name ~ '^events/.+/.+'
+);
+
+drop policy if exists storage_event_images_select_authenticated on storage.objects;
+create policy storage_event_images_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'event-images');
+
+drop policy if exists storage_event_images_delete_authenticated on storage.objects;
+create policy storage_event_images_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'event-images');
+
+drop policy if exists storage_study_plan_insert_authenticated on storage.objects;
+create policy storage_study_plan_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'study-plan-files'
+  and (metadata->>'mimetype') in (
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  )
+  and coalesce((metadata->>'size')::bigint, 0) <= 10 * 1024 * 1024
+  and name ~ '^study-plans/.+/.+'
+);
+
+drop policy if exists storage_study_plan_select_authenticated on storage.objects;
+create policy storage_study_plan_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'study-plan-files');
+
+drop policy if exists storage_study_plan_delete_authenticated on storage.objects;
+create policy storage_study_plan_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'study-plan-files');
+
+drop policy if exists storage_schedule_files_insert_authenticated on storage.objects;
+create policy storage_schedule_files_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'schedule-files'
+  and (metadata->>'mimetype') in ('application/pdf')
+  and coalesce((metadata->>'size')::bigint, 0) <= 10 * 1024 * 1024
+  and name ~ '^schedules/.+/.+'
+);
+
+drop policy if exists storage_schedule_files_select_authenticated on storage.objects;
+create policy storage_schedule_files_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'schedule-files');
+
+drop policy if exists storage_schedule_files_delete_authenticated on storage.objects;
+create policy storage_schedule_files_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'schedule-files');
+
+drop policy if exists storage_calendar_files_insert_authenticated on storage.objects;
+create policy storage_calendar_files_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'calendar-files'
+  and (metadata->>'mimetype') in ('application/pdf')
+  and coalesce((metadata->>'size')::bigint, 0) <= 10 * 1024 * 1024
+  and name ~ '^calendars/.+/.+'
+);
+
+drop policy if exists storage_calendar_files_select_authenticated on storage.objects;
+create policy storage_calendar_files_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'calendar-files');
+
+drop policy if exists storage_calendar_files_delete_authenticated on storage.objects;
+create policy storage_calendar_files_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'calendar-files');
+
+drop policy if exists storage_activity_images_insert_authenticated on storage.objects;
+create policy storage_activity_images_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'activity-images'
+  and (metadata->>'mimetype') in ('image/jpeg', 'image/png', 'image/webp')
+  and coalesce((metadata->>'size')::bigint, 0) <= 5 * 1024 * 1024
+  and name ~ '^activities/.+/.+'
+);
+
+drop policy if exists storage_activity_images_select_authenticated on storage.objects;
+create policy storage_activity_images_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'activity-images');
+
+drop policy if exists storage_activity_images_delete_authenticated on storage.objects;
+create policy storage_activity_images_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'activity-images');
+
+drop policy if exists storage_gallery_images_insert_authenticated on storage.objects;
+create policy storage_gallery_images_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'gallery-images'
+  and (metadata->>'mimetype') in ('image/jpeg', 'image/png', 'image/webp')
+  and coalesce((metadata->>'size')::bigint, 0) <= 8 * 1024 * 1024
+  and name ~ '^gallery/.+/.+'
+);
+
+drop policy if exists storage_gallery_images_select_authenticated on storage.objects;
+create policy storage_gallery_images_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'gallery-images');
+
+drop policy if exists storage_gallery_images_delete_authenticated on storage.objects;
+create policy storage_gallery_images_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'gallery-images');
+
+drop policy if exists storage_resources_files_insert_authenticated on storage.objects;
+create policy storage_resources_files_insert_authenticated
+on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'resources-files'
+  and (metadata->>'mimetype') in (
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/zip',
+    'text/plain',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime'
+  )
+  and coalesce((metadata->>'size')::bigint, 0) <= 100 * 1024 * 1024
+  and name ~ '^resources/.+/.+'
+);
+
+drop policy if exists storage_resources_files_select_authenticated on storage.objects;
+create policy storage_resources_files_select_authenticated
+on storage.objects
+for select to authenticated
+using (bucket_id = 'resources-files');
+
+drop policy if exists storage_resources_files_delete_authenticated on storage.objects;
+create policy storage_resources_files_delete_authenticated
+on storage.objects
+for delete to authenticated
+using (bucket_id = 'resources-files');

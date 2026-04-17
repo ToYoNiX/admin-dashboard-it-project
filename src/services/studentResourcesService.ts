@@ -23,19 +23,24 @@ export type StudentResourceCategory = (typeof studentResourceCategories)[number]
 export interface StudentResourceRecord {
   id: string;
   title: string;
+  description: string | null;
   resource_type: StudentResourceType;
   category: StudentResourceCategory;
   resource_url: string | null;
   file_path: string | null;
+  duration: string | null;
+  thumbnail_path: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface StudentResourceInput {
   title: string;
+  description: string;
   category: StudentResourceCategory;
   resourceType: StudentResourceType;
   resourceUrl: string;
+  duration: string;
 }
 
 const FILE_MIME_TYPES = [
@@ -52,6 +57,8 @@ const FILE_MIME_TYPES = [
   'video/webm',
   'video/quicktime'
 ];
+
+const THUMBNAIL_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function assertInput(input: StudentResourceInput): void {
   if (!input.title.trim()) {
@@ -76,6 +83,14 @@ function validateResourceFile(file: File): void {
     maxSizeInMb: 100,
     allowedMimeTypes: FILE_MIME_TYPES,
     label: 'Resource file'
+  });
+}
+
+function validateThumbnailFile(file: File): void {
+  validateFile(file, {
+    maxSizeInMb: 8,
+    allowedMimeTypes: THUMBNAIL_MIME_TYPES,
+    label: 'Thumbnail image'
   });
 }
 
@@ -108,7 +123,11 @@ export async function listStudentResources(): Promise<StudentResourceRecord[]> {
   return (data ?? []) as StudentResourceRecord[];
 }
 
-export async function createStudentResource(input: StudentResourceInput, file?: File | null): Promise<void> {
+export async function createStudentResource(
+  input: StudentResourceInput,
+  file?: File | null,
+  thumbnailFile?: File | null
+): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
   }
@@ -121,6 +140,7 @@ export async function createStudentResource(input: StudentResourceInput, file?: 
 
   const id = crypto.randomUUID();
   let filePath: string | null = null;
+  let thumbnailPath: string | null = null;
   let resourceUrl: string | null = null;
 
   if (input.resourceType === 'file' && file) {
@@ -128,16 +148,25 @@ export async function createStudentResource(input: StudentResourceInput, file?: 
     filePath = await uploadResourceFile(file, id);
   } else {
     resourceUrl = input.resourceUrl.trim();
+
+    if (input.resourceType === 'video' && thumbnailFile) {
+      validateThumbnailFile(thumbnailFile);
+      const target = parseStorageTarget(supabaseResourcesFilesBucket, 'resources');
+      thumbnailPath = await uploadFileToStorage(thumbnailFile, target, id, 'thumbnail');
+    }
   }
 
   const now = new Date().toISOString();
   const { error } = await supabase.from(supabaseStudentResourcesTable).insert({
     id,
     title: input.title.trim(),
+    description: input.description.trim() || null,
     category: input.category,
     resource_type: input.resourceType,
     resource_url: resourceUrl,
     file_path: filePath,
+    duration: input.resourceType === 'video' ? input.duration.trim() || null : null,
+    thumbnail_path: thumbnailPath,
     created_at: now,
     updated_at: now
   });
@@ -155,6 +184,7 @@ export async function updateStudentResource(
   input: StudentResourceInput,
   options: {
     file?: File | null;
+    thumbnailFile?: File | null;
     existingRecord: StudentResourceRecord;
   }
 ): Promise<void> {
@@ -167,6 +197,7 @@ export async function updateStudentResource(
   const target = parseStorageTarget(supabaseResourcesFilesBucket, 'resources');
   let nextFilePath: string | null = options.existingRecord.file_path;
   let nextResourceUrl: string | null = options.existingRecord.resource_url;
+  let nextThumbnailPath: string | null = options.existingRecord.thumbnail_path;
 
   if (input.resourceType === 'file') {
     if (options.file) {
@@ -182,22 +213,45 @@ export async function updateStudentResource(
     }
 
     nextResourceUrl = null;
+    if (nextThumbnailPath) {
+      await deleteStorageFile(target.bucket, nextThumbnailPath);
+      nextThumbnailPath = null;
+    }
   } else {
     if (options.existingRecord.file_path) {
       await deleteStorageFile(target.bucket, options.existingRecord.file_path);
     }
     nextFilePath = null;
     nextResourceUrl = input.resourceUrl.trim();
+
+    if (input.resourceType === 'video') {
+      if (options.thumbnailFile) {
+        validateThumbnailFile(options.thumbnailFile);
+        const uploadedThumbnailPath = await uploadFileToStorage(options.thumbnailFile, target, id, 'thumbnail');
+
+        if (nextThumbnailPath) {
+          await deleteStorageFile(target.bucket, nextThumbnailPath);
+        }
+
+        nextThumbnailPath = uploadedThumbnailPath;
+      }
+    } else if (nextThumbnailPath) {
+      await deleteStorageFile(target.bucket, nextThumbnailPath);
+      nextThumbnailPath = null;
+    }
   }
 
   const { error } = await supabase
     .from(supabaseStudentResourcesTable)
     .update({
       title: input.title.trim(),
+      description: input.description.trim() || null,
       category: input.category,
       resource_type: input.resourceType,
       resource_url: nextResourceUrl,
       file_path: nextFilePath,
+      duration: input.resourceType === 'video' ? input.duration.trim() || null : null,
+      thumbnail_path: nextThumbnailPath,
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
@@ -216,6 +270,10 @@ export async function deleteStudentResource(record: StudentResourceRecord): Prom
 
   if (record.file_path) {
     await deleteStorageFile(target.bucket, record.file_path);
+  }
+
+  if (record.thumbnail_path) {
+    await deleteStorageFile(target.bucket, record.thumbnail_path);
   }
 
   const { error } = await supabase.from(supabaseStudentResourcesTable).delete().eq('id', record.id);

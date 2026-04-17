@@ -10,6 +10,7 @@ export interface StaffPayload {
   title: string;
   firstName: string;
   lastName: string;
+  department: string;
   position: string;
   speciality: string;
   googleScholarLink: string;
@@ -20,6 +21,7 @@ export interface StaffRecord {
   title: string;
   first_name: string;
   last_name: string;
+  department: string;
   position: string;
   speciality: string;
   google_scholar_link: string | null;
@@ -88,6 +90,7 @@ export async function createStaffProfile(
     title: payload.title,
     first_name: payload.firstName,
     last_name: payload.lastName,
+    department: payload.department,
     position: payload.position,
     speciality: payload.speciality,
     google_scholar_link: payload.googleScholarLink || null,
@@ -154,6 +157,7 @@ export async function updateStaffProfile(
       title: payload.title,
       first_name: payload.firstName,
       last_name: payload.lastName,
+      department: payload.department,
       position: payload.position,
       speciality: payload.speciality,
       google_scholar_link: payload.googleScholarLink || null,

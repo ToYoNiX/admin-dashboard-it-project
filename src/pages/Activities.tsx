@@ -41,7 +41,16 @@ const initialForm: ActivityInput = {
 };
 
 function getFileName(path: string): string {
-  return path.split('/').at(-1) || path;
+  const parts = path.split('/');
+  return parts[parts.length - 1] || path;
+}
+
+function formatActivityType(type: string): string {
+  return type
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 export function Activities() {
@@ -218,7 +227,7 @@ export function Activities() {
                 >
                   {activityTypes.map((type) => (
                     <option key={type} value={type}>
-                      {type}
+                      {formatActivityType(type)}
                     </option>
                   ))}
                 </select>
@@ -366,7 +375,7 @@ export function Activities() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-semibold text-must-text-primary">{record.title}</h3>
                           <span className="text-xs px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-must-text-secondary capitalize">
-                            {record.activity_type}
+                            {formatActivityType(record.activity_type)}
                           </span>
                         </div>
                         <p className="text-sm text-must-text-secondary mt-2 whitespace-pre-line">{record.description}</p>

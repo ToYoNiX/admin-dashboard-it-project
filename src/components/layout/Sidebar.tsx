@@ -46,26 +46,6 @@ export function Sidebar({
     label: 'Activities'
   },
     {
-      id: 'Gallery',
-      icon: ImagesIcon,
-      label: 'Photo Gallery'
-    },
-    {
-      id: 'Advisor Resources',
-      icon: GraduationCapIcon,
-      label: 'Advisor Resources'
-    },
-    {
-      id: 'Student Resources',
-      icon: SchoolIcon,
-      label: 'Student Resources'
-    },
-  {
-    id: 'Staff',
-    icon: BriefcaseIcon,
-    label: 'Academic Staff'
-  },
-  {
     id: 'News',
     icon: NewspaperIcon,
     label: 'News'
@@ -75,6 +55,29 @@ export function Sidebar({
     icon: CalendarRangeIcon,
     label: 'Events'
   },
+    {
+      id: 'Gallery',
+      icon: ImagesIcon,
+      label: 'Photo Gallery'
+    },
+      {
+    id: 'Staff',
+    icon: BriefcaseIcon,
+    label: 'Academic Staff'
+  },
+   {
+      id: 'Advisor Resources',
+      icon: GraduationCapIcon,
+      label: 'Advisor Resources'
+    },
+    {
+      id: 'Student Resources',
+      icon: SchoolIcon,
+      label: 'Student Resources'
+    },
+
+
+  
   {
     id: 'Study Plans',
     icon: BookCopyIcon,
@@ -95,6 +98,7 @@ export function Sidebar({
     icon: MessageSquareIcon,
     label: 'Messages'
   },
+
   ...(isSuperAdmin ? [{
     id: 'Manage Advisors',
     icon: ShieldCheckIcon,

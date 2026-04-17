@@ -26,8 +26,10 @@ import { supabaseResourcesFilesBucket } from '../lib/supabase';
 
 const initialForm: AdvisorResourceInput = {
   title: '',
+  description: '',
   resourceType: 'file',
-  resourceUrl: ''
+  resourceUrl: '',
+  duration: ''
 };
 
 function labelizeType(type: string): string {
@@ -42,6 +44,7 @@ export function AdvisorResources() {
   const [activeTypeTab, setActiveTypeTab] = useState('All');
   const [form, setForm] = useState<AdvisorResourceInput>(initialForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedThumbnailFile, setSelectedThumbnailFile] = useState<File | null>(null);
   const [editingRecord, setEditingRecord] = useState<AdvisorResourceRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdvisorResourceRecord | null>(null);
 
@@ -67,6 +70,7 @@ export function AdvisorResources() {
   function resetForm(): void {
     setForm(initialForm);
     setSelectedFile(null);
+    setSelectedThumbnailFile(null);
     setEditingRecord(null);
     setSubmitError('');
   }
@@ -75,10 +79,13 @@ export function AdvisorResources() {
     setEditingRecord(record);
     setSubmitError('');
     setSelectedFile(null);
+    setSelectedThumbnailFile(null);
     setForm({
       title: record.title,
+      description: record.description ?? '',
       resourceType: record.resource_type,
-      resourceUrl: record.resource_url ?? ''
+      resourceUrl: record.resource_url ?? '',
+      duration: record.duration ?? ''
     });
   }
 
@@ -92,10 +99,11 @@ export function AdvisorResources() {
       if (editingRecord) {
         await updateAdvisorResource(editingRecord.id, form, {
           file: selectedFile,
+          thumbnailFile: selectedThumbnailFile,
           existingRecord: editingRecord
         });
       } else {
-        await createAdvisorResource(form, selectedFile);
+        await createAdvisorResource(form, selectedFile, selectedThumbnailFile);
       }
 
       await loadResources();
@@ -159,6 +167,13 @@ export function AdvisorResources() {
                 required
               />
 
+              <Input
+                label="Description (Optional)"
+                value={form.description}
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                placeholder="Short description shown under title"
+              />
+
               <div>
                 <label className="block text-sm font-medium text-must-text-primary mb-1">Resource Type</label>
                 <select
@@ -194,15 +209,49 @@ export function AdvisorResources() {
                   </p>
                 </div>
               ) : (
-                <Input
-                  label={form.resourceType === 'video' ? 'Video URL' : 'Link URL'}
-                  type="url"
-                  value={form.resourceUrl}
-                  onChange={(event) => setForm((prev) => ({ ...prev, resourceUrl: event.target.value }))}
-                  placeholder="https://..."
-                  icon={<LinkIcon className="w-4 h-4" />}
-                  required
-                />
+                <>
+                  <Input
+                    label={form.resourceType === 'video' ? 'Video URL' : 'Link URL'}
+                    type="url"
+                    value={form.resourceUrl}
+                    onChange={(event) => setForm((prev) => ({ ...prev, resourceUrl: event.target.value }))}
+                    placeholder="https://..."
+                    icon={<LinkIcon className="w-4 h-4" />}
+                    required
+                  />
+
+                  {form.resourceType === 'video' ?
+                  <>
+                      <Input
+                        label="Duration (Optional)"
+                        value={form.duration}
+                        onChange={(event) => setForm((prev) => ({ ...prev, duration: event.target.value }))}
+                        placeholder="e.g. 12:30"
+                      />
+
+                      <div>
+                        <label className="block text-sm font-medium text-must-text-primary mb-2">Thumbnail (Optional)</label>
+                        <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
+                          <UploadIcon className="w-4 h-4" />
+                          <span className="text-sm">Choose thumbnail image</span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            onChange={(event) => setSelectedThumbnailFile(event.target.files?.[0] ?? null)}
+                          />
+                        </label>
+                        <p className="mt-2 text-xs text-must-text-secondary">
+                          {selectedThumbnailFile ?
+                          selectedThumbnailFile.name :
+                          editingRecord?.thumbnail_path ?
+                          'Current thumbnail kept unless replaced' :
+                          'No thumbnail selected'}
+                        </p>
+                      </div>
+                    </> :
+                  null}
+                </>
               )}
 
               {submitError ? <p className="text-sm text-red-500">{submitError}</p> : null}
@@ -238,6 +287,7 @@ export function AdvisorResources() {
                 .filter((record) => activeTypeTab === 'All' || record.resource_type === activeTypeTab.toLowerCase())
                 .map((record) => {
                 const fileUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.file_path);
+                const thumbnailUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.thumbnail_path);
                 const actionUrl = record.resource_type === 'file' ? fileUrl : record.resource_url;
                 const isFileResource = record.resource_type === 'file';
 
@@ -257,9 +307,20 @@ export function AdvisorResources() {
 
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-must-text-primary truncate">{record.title}</h3>
+                          {record.description ? <p className="text-xs text-must-text-secondary mt-1 line-clamp-2">{record.description}</p> : null}
                           <p className="text-xs text-must-text-secondary mt-1 capitalize">{record.resource_type}</p>
+                          {record.resource_type === 'video' && record.duration ?
+                          <p className="text-xs text-must-text-secondary mt-1">Duration: {record.duration}</p> :
+                          null}
                         </div>
                       </div>
+
+                      {record.resource_type === 'video' && thumbnailUrl ?
+                      <img
+                        src={thumbnailUrl}
+                        alt={`${record.title} thumbnail`}
+                        className="mt-3 w-full h-32 object-cover rounded-lg border border-must-border" /> :
+                      null}
 
                       <div className="mt-4 flex items-center justify-between gap-2">
                         <Button type="button" size="sm" variant="outline" onClick={() => startEdit(record)}>

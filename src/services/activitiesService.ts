@@ -10,7 +10,7 @@ import {
   validateFile
 } from './storageUtils';
 
-export const activityTypes = ['Sport', 'Cultural', 'Art', 'Student Club'] as const;
+export const activityTypes = ['sport', 'cultural', 'art', 'student club'] as const;
 export type ActivityType = (typeof activityTypes)[number];
 
 export interface ActivityRecord {
