@@ -11,11 +11,14 @@ export function Input({
   className = '',
   ...props
 }: InputProps) {
+  const showRequiredMark = Boolean(props.required);
+
   return (
     <div className="w-full">
       {label &&
       <label className="block text-sm font-medium text-must-text-primary mb-1">
           {label}
+          {showRequiredMark ? <span className="ml-1 text-red-500">*</span> : null}
         </label>
       }
       <div className="relative">

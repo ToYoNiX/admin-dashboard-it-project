@@ -199,6 +199,8 @@ alter table public.students add column if not exists mobile text;
 alter table public.students add column if not exists email text;
 alter table public.students add column if not exists advisor_name text;
 
+alter table if exists public.staff add column if not exists display_order integer not null default 0;
+
 create table if not exists public.student_honor_list_documents (
   key text primary key default 'current',
   file_path text not null,

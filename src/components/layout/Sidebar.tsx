@@ -65,12 +65,14 @@ export function Sidebar({
 
   const isAcademicsActive = academicItems.some((item) => item.id === activePage);
 
-  const menuItems = [
+  const primaryMenuItems = [
   {
     id: 'Dashboard',
     icon: LayoutDashboardIcon,
     label: 'Dashboard'
-  },
+  }];
+
+  const menuItems = [
   {
     id: 'Students',
     icon: UsersIcon,
@@ -108,7 +110,7 @@ export function Sidebar({
 
       <div className="flex-1 py-6 overflow-y-auto scrollbar-custom">
         <nav className="space-y-1 px-3">
-          {menuItems.map((item) => {
+          {primaryMenuItems.map((item) => {
             const isActive = activePage === item.id;
             const Icon = item.icon;
             return (
@@ -138,6 +140,7 @@ export function Sidebar({
           <div className="relative group">
             <button
               type="button"
+              onClick={() => onPageChange('Staff')}
               className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors group relative ${isAcademicsActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
               title={collapsed ? 'Academics' : undefined}>
 
@@ -183,6 +186,33 @@ export function Sidebar({
               </div>
             </div>
           </div>
+
+          {menuItems.map((item) => {
+            const isActive = activePage === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onPageChange(item.id)}
+                className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors group relative ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
+                title={collapsed ? item.label : undefined}>
+
+                {isActive &&
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-must-green rounded-r-full" />
+                }
+
+
+                {!collapsed &&
+                <span className="font-medium text-sm whitespace-nowrap mr-3">
+                    {item.label}
+                  </span>
+                }
+
+                <Icon
+                  className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : ''}`} />
+              </button>);
+
+          })}
 
           <button
             type="button"

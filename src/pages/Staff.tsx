@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   BriefcaseIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   Edit2Icon,
   EyeIcon,
   FileTextIcon,
@@ -21,6 +23,8 @@ import {
   createStaffProfile,
   deleteStaffProfile,
   listStaffProfiles,
+  reorderStaffProfiles,
+  staffRanks,
   type StaffRecord,
   updateStaffProfile
 } from '../services/staffService';
@@ -28,7 +32,7 @@ import { isSupabaseConfigured, supabaseImageBucket } from '../lib/supabase';
 import { getPublicFileUrl } from '../services/storageUtils';
 
 interface StaffFormData {
-  title: string;
+  title: (typeof staffRanks)[number];
   firstName: string;
   lastName: string;
   email: string;
@@ -39,7 +43,7 @@ interface StaffFormData {
 }
 
 const initialFormData: StaffFormData = {
-  title: '',
+  title: 'Professors',
   firstName: '',
   lastName: '',
   email: '',
@@ -62,6 +66,13 @@ export function Staff() {
   const [editingRecord, setEditingRecord] = useState<StaffRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StaffRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeRankTab, setActiveRankTab] = useState<(typeof staffRanks)[number] | 'All'>('All');
+  const [isReordering, setIsReordering] = useState(false);
+
+  const getRankSortValue = (rank: string) => {
+    const index = staffRanks.indexOf(rank as (typeof staffRanks)[number]);
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  };
 
   React.useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -121,7 +132,7 @@ export function Staff() {
       lastName: record.last_name,
       email: record.email ?? '',
       department: record.department ?? '',
-      position: record.position,
+      position: record.position ?? '',
       speciality: record.speciality,
       googleScholarLink: record.google_scholar_link ?? ''
     });
@@ -137,28 +148,36 @@ export function Staff() {
       return;
     }
 
-    if (!editingRecord && (!cvFile || !staffImage)) {
-      setSubmitError('Please upload both CV and staff image files.');
+    if (!staffImage && !editingRecord) {
+      setSubmitError('Please upload a staff image.');
       return;
     }
 
     try {
       setIsSubmitting(true);
+      const nextDisplayOrder =
+        editingRecord?.display_order ??
+        staffRecords.filter((record) => record.title === formData.title).length + 1;
+
+      const payload = {
+        ...formData,
+        displayOrder: nextDisplayOrder
+      };
 
       if (editingRecord) {
-        await updateStaffProfile(editingRecord.id, formData, {
+        await updateStaffProfile(editingRecord.id, payload, {
           cvFile,
           staffImage,
           existingCvPath: editingRecord.cv_path,
           existingImagePath: editingRecord.image_path
         });
       } else {
-        if (!cvFile || !staffImage) {
-          setSubmitError('Please upload both CV and staff image files.');
+        if (!staffImage) {
+          setSubmitError('Please upload a staff image.');
           setIsSubmitting(false);
           return;
         }
-        await createStaffProfile(formData, cvFile, staffImage);
+        await createStaffProfile(payload, cvFile, staffImage);
       }
 
       await loadStaffProfiles();
@@ -172,6 +191,60 @@ export function Staff() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const persistRankOrder = async (reordered: StaffRecord[]) => {
+    const reorderedWithDisplayOrder = reordered.map((record, index) => ({
+      ...record,
+      display_order: index + 1
+    }));
+
+    const unaffectedRecords = staffRecords.filter(
+      (record) => !reorderedWithDisplayOrder.some((reorderedRecord) => reorderedRecord.id === record.id)
+    );
+    const nextStaffRecords = [...unaffectedRecords, ...reorderedWithDisplayOrder].sort((a, b) => {
+      const rankComparison = getRankSortValue(a.title) - getRankSortValue(b.title);
+      if (rankComparison !== 0) {
+        return rankComparison;
+      }
+      return a.display_order - b.display_order;
+    });
+
+    setStaffRecords(nextStaffRecords);
+
+    try {
+      setIsReordering(true);
+      await reorderStaffProfiles(
+        reorderedWithDisplayOrder.map((record) => ({
+          id: record.id,
+          display_order: record.display_order
+        }))
+      );
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save staff order.');
+      await loadStaffProfiles();
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  const moveStaffRecord = async (staffId: string, direction: 'up' | 'down') => {
+    const sourceIndex = filteredStaffRecords.findIndex((record) => record.id === staffId);
+
+    if (sourceIndex === -1) {
+      return;
+    }
+
+    const targetIndex = direction === 'up' ? sourceIndex - 1 : sourceIndex + 1;
+
+    if (targetIndex < 0 || targetIndex >= filteredStaffRecords.length) {
+      return;
+    }
+
+    const reordered = [...filteredStaffRecords];
+    const [movedRecord] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, movedRecord);
+    await persistRankOrder(reordered);
   };
 
   const confirmDelete = async () => {
@@ -196,10 +269,15 @@ export function Staff() {
 
   const paginatedStaffRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return staffRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [currentPage, staffRecords]);
+    const filtered = activeRankTab === 'All' ? staffRecords : staffRecords.filter((record) => record.title === activeRankTab);
+    return filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [activeRankTab, currentPage, staffRecords]);
 
-  const totalPages = Math.max(1, Math.ceil(staffRecords.length / ITEMS_PER_PAGE));
+  const filteredStaffRecords = useMemo(() => {
+    return activeRankTab === 'All' ? staffRecords : staffRecords.filter((record) => record.title === activeRankTab);
+  }, [activeRankTab, staffRecords]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStaffRecords.length / ITEMS_PER_PAGE));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto pb-12">
@@ -213,6 +291,21 @@ export function Staff() {
             Add staff profile details and upload supporting files.
           </p>
         </div>
+      </div>
+
+      <div className="flex border-b border-must-border overflow-x-auto">
+        {(['All', ...staffRanks] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveRankTab(tab);
+              setCurrentPage(1);
+            }}
+            className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeRankTab === tab ? 'border-must-green text-must-green' : 'border-transparent text-must-text-secondary hover:text-must-text-primary hover:border-slate-300'}`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
       <Card>
@@ -232,14 +325,25 @@ export function Staff() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                placeholder="e.g. Prof., Dr., Mr., Ms."
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium text-must-text-primary mb-1">
+                  Academic Rank <span className="ml-1 text-red-500">*</span>
+                </label>
+                <select
+                  name="title"
+                  value={formData.title}
+                  onChange={(event) =>
+                    setFormData((previous) => ({ ...previous, title: event.target.value as (typeof staffRanks)[number] }))
+                  }
+                  className="w-full rounded-lg border border-must-border bg-must-surface text-must-text-primary px-4 py-2 text-sm focus:ring-2 focus:ring-must-green outline-none"
+                >
+                  {staffRanks.map((rank) => (
+                    <option key={rank} value={rank}>
+                      {rank}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <Input
                 label="First Name"
                 name="firstName"
@@ -271,7 +375,6 @@ export function Staff() {
                 value={formData.position}
                 onChange={handleInputChange}
                 placeholder="e.g. Assistant Professor"
-                required
               />
               <Input
                 label="Department"
@@ -282,11 +385,11 @@ export function Staff() {
                 required
               />
               <Input
-                label="Speciality"
+                label="Research Directions"
                 name="speciality"
                 value={formData.speciality}
                 onChange={handleInputChange}
-                placeholder="e.g. Artificial Intelligence"
+                placeholder="e.g. Artificial Intelligence, Data Mining"
                 required
               />
               <Input
@@ -313,7 +416,6 @@ export function Staff() {
                     accept=".pdf,.doc,.docx"
                     onChange={handleCvChange}
                     className="hidden"
-                    required={!editingRecord}
                   />
                 </label>
                 <div className="mt-3 flex items-center gap-2 text-sm text-must-text-secondary min-h-5">
@@ -326,7 +428,7 @@ export function Staff() {
 
               <div className="rounded-lg border border-must-border bg-must-surface p-4">
                 <label className="block text-sm font-medium text-must-text-primary mb-3">
-                  Upload Staff Image
+                  Upload Staff Image <span className="ml-1 text-red-500">*</span>
                 </label>
                 <label className="flex items-center justify-center gap-2 w-full px-4 py-5 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
                   <UploadIcon className="w-4 h-4" />
@@ -376,16 +478,24 @@ export function Staff() {
 
       <Card>
         <CardHeader className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-must-text-primary">Academic Staff</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            icon={<PlusIcon className="w-4 h-4" />}
-            onClick={clearForm}
-          >
-            Add New
-          </Button>
+          <div>
+            <h2 className="text-lg font-semibold text-must-text-primary">Academic Staff</h2>
+            <p className="mt-1 text-xs text-must-text-secondary">
+              Use the move buttons to reorder staff exactly as they should appear on the frontend.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isReordering ? <span className="text-xs text-must-green">Saving order...</span> : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              icon={<PlusIcon className="w-4 h-4" />}
+              onClick={clearForm}
+            >
+              Add New
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoadingRecords ? (
@@ -396,58 +506,92 @@ export function Staff() {
             <p className="text-sm text-must-text-secondary">No staff entries yet.</p>
           ) : null}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {paginatedStaffRecords.map((record) => {
               const imageUrl = getPublicFileUrl(supabaseImageBucket, record.image_path);
               const fullName = `${record.title} ${record.first_name} ${record.last_name}`;
 
               return (
-                <Card key={record.id} className="border border-must-border">
+                <Card key={record.id} className="border border-must-border overflow-hidden">
                   <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      {imageUrl ? (
-                        <img
-                          src={imageUrl}
-                          alt={fullName}
-                          className="w-16 h-16 rounded-lg object-cover border border-must-border"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                          <EyeIcon className="w-5 h-5" />
+                    <div className="flex items-start gap-4">
+                      <div className="shrink-0">
+                        {imageUrl ? (
+                          <img
+                            src={imageUrl}
+                            alt={fullName}
+                            className="h-20 w-20 rounded-xl object-cover border border-must-border shadow-sm"
+                          />
+                        ) : (
+                          <div className="h-20 w-20 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 border border-must-border">
+                            <EyeIcon className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-must-text-primary truncate">{fullName}</h3>
+                            <p className="mt-1 text-sm text-must-green">{record.title}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-must-green border border-green-100">
+                            Order #{record.display_order}
+                          </span>
                         </div>
-                      )}
 
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-must-text-primary truncate">{fullName}</h3>
-                        <p className="text-sm text-must-text-secondary truncate">{record.position}</p>
-                        <p className="text-xs text-must-text-secondary mt-1 truncate">{record.email || 'No email provided'}</p>
-                        <p className="text-xs text-must-text-secondary mt-1 truncate">Department: {record.department || 'N/A'}</p>
-                        <p className="text-xs text-must-text-secondary mt-1 truncate">{record.speciality}</p>
+                        <div className="mt-3 space-y-1.5 text-xs text-must-text-secondary">
+                          {record.position ? <p className="truncate">Position: {record.position}</p> : null}
+                          <p className="truncate">Email: {record.email || 'No email provided'}</p>
+                          <p className="truncate">Department: {record.department || 'N/A'}</p>
+                          <p className="line-clamp-2">Research Directions: {record.speciality}</p>
+                        </div>
                       </div>
+                    </div>
 
-                      <div className="ml-auto flex shrink-0 flex-col gap-2 rounded-xl border border-must-border bg-slate-50/80 p-2 dark:bg-slate-800/40">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            icon={<Edit2Icon className="w-4 h-4" />}
-                            onClick={() => startEdit(record)}
-                            className="justify-start min-w-[108px]"
-                          >
-                            Edit
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="danger"
-                            size="sm"
-                            icon={<Trash2Icon className="w-4 h-4" />}
-                            onClick={() => setDeleteTarget(record)}
-                            className="justify-start min-w-[108px]"
-                          >
-                            Delete
-                          </Button>
-                      </div>
+                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-must-border pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        icon={<ChevronUpIcon className="w-4 h-4" />}
+                        onClick={() => {
+                          void moveStaffRecord(record.id, 'up');
+                        }}
+                        disabled={isReordering || filteredStaffRecords[0]?.id === record.id}
+                      >
+                        Move Up
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        icon={<ChevronDownIcon className="w-4 h-4" />}
+                        onClick={() => {
+                          void moveStaffRecord(record.id, 'down');
+                        }}
+                        disabled={isReordering || filteredStaffRecords[filteredStaffRecords.length - 1]?.id === record.id}
+                      >
+                        Move Down
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        icon={<Edit2Icon className="w-4 h-4" />}
+                        onClick={() => startEdit(record)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2Icon className="w-4 h-4" />}
+                        onClick={() => setDeleteTarget(record)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -459,7 +603,7 @@ export function Staff() {
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              totalItems={staffRecords.length}
+              totalItems={filteredStaffRecords.length}
               itemLabel="staff members"
               onPageChange={setCurrentPage}
             />

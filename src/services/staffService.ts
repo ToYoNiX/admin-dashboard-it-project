@@ -15,6 +15,7 @@ export interface StaffPayload {
   position: string;
   speciality: string;
   googleScholarLink: string;
+  displayOrder: number;
 }
 
 export interface StaffRecord {
@@ -24,14 +25,23 @@ export interface StaffRecord {
   last_name: string;
   email: string | null;
   department: string;
-  position: string;
+  position: string | null;
   speciality: string;
   google_scholar_link: string | null;
-  cv_path: string;
+  display_order: number;
+  cv_path: string | null;
   image_path: string;
   created_at: string;
   updated_at: string | null;
 }
+
+export const staffRanks = [
+  'Professors',
+  'Assistant Professors',
+  'Lecturers',
+  'Assistant Lecturers',
+  'Teaching Assistants'
+] as const;
 
 const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-');
 
@@ -75,7 +85,7 @@ async function uploadStaffFile(file: File, target: StorageTarget): Promise<strin
 
 export async function createStaffProfile(
   payload: StaffPayload,
-  cvFile: File,
+  cvFile: File | null,
   staffImage: File
 ): Promise<void> {
   if (!supabase) {
@@ -85,7 +95,7 @@ export async function createStaffProfile(
   const cvTarget = parseStorageTarget(supabaseCvBucket, 'cv');
   const imageTarget = parseStorageTarget(supabaseImageBucket, 'images');
 
-  const cvPath = await uploadStaffFile(cvFile, cvTarget);
+  const cvPath = cvFile ? await uploadStaffFile(cvFile, cvTarget) : null;
   const imagePath = await uploadStaffFile(staffImage, imageTarget);
 
   const { error } = await supabase.from(supabaseStaffTable).insert({
@@ -94,9 +104,10 @@ export async function createStaffProfile(
     last_name: payload.lastName,
     email: payload.email.trim().toLowerCase(),
     department: payload.department,
-    position: payload.position,
+    position: payload.position.trim() || null,
     speciality: payload.speciality,
     google_scholar_link: payload.googleScholarLink || null,
+    display_order: payload.displayOrder,
     cv_path: cvPath,
     image_path: imagePath,
     created_at: new Date().toISOString()
@@ -115,6 +126,7 @@ export async function listStaffProfiles(): Promise<StaffRecord[]> {
   const { data, error } = await supabase
     .from(supabaseStaffTable)
     .select('*')
+    .order('display_order', { ascending: true })
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -130,7 +142,7 @@ export async function updateStaffProfile(
   options: {
     cvFile?: File | null;
     staffImage?: File | null;
-    existingCvPath: string;
+    existingCvPath: string | null;
     existingImagePath: string;
   }
 ): Promise<void> {
@@ -146,7 +158,9 @@ export async function updateStaffProfile(
 
   if (options.cvFile) {
     nextCvPath = await uploadStaffFile(options.cvFile, cvTarget);
-    await deleteStorageFile(cvTarget.bucket, options.existingCvPath);
+    if (options.existingCvPath) {
+      await deleteStorageFile(cvTarget.bucket, options.existingCvPath);
+    }
   }
 
   if (options.staffImage) {
@@ -162,9 +176,10 @@ export async function updateStaffProfile(
       last_name: payload.lastName,
       email: payload.email.trim().toLowerCase(),
       department: payload.department,
-      position: payload.position,
+      position: payload.position.trim() || null,
       speciality: payload.speciality,
       google_scholar_link: payload.googleScholarLink || null,
+      display_order: payload.displayOrder,
       cv_path: nextCvPath,
       image_path: nextImagePath,
       updated_at: new Date().toISOString()
@@ -174,6 +189,29 @@ export async function updateStaffProfile(
   if (error) {
     throw new Error(`Failed to update staff profile: ${error.message}`);
   }
+}
+
+export async function reorderStaffProfiles(records: Array<Pick<StaffRecord, 'id' | 'display_order'>>): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  await Promise.all(
+    records.map((record) =>
+      supabase
+        .from(supabaseStaffTable)
+        .update({
+          display_order: record.display_order,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', record.id)
+    )
+  ).then((results) => {
+    const failed = results.find((result) => result.error);
+    if (failed?.error) {
+      throw new Error(`Failed to reorder staff profiles: ${failed.error.message}`);
+    }
+  });
 }
 
 export async function deleteStaffProfile(record: StaffRecord): Promise<void> {
