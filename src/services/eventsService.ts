@@ -5,6 +5,7 @@ import {
 } from '../lib/supabase';
 import {
   deleteStorageFile,
+  deleteStorageFileSafely,
   parseStorageTarget,
   uploadFileToStorage,
   validateFile
@@ -189,7 +190,7 @@ export async function deleteEvent(id: string, imagePath?: string | null): Promis
   const target = parseStorageTarget(supabaseEventImagesBucket, 'events');
 
   if (imagePath) {
-    await deleteStorageFile(target.bucket, imagePath);
+    await deleteStorageFileSafely(target.bucket, imagePath);
   }
 
   const { error } = await supabase.from(supabaseEventsTable).delete().eq('id', id);

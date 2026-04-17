@@ -5,6 +5,7 @@ import {
 } from '../lib/supabase';
 import {
   deleteStorageFile,
+  deleteStorageFileSafely,
   parseStorageTarget,
   uploadFileToStorage,
   validateFile
@@ -82,7 +83,7 @@ export async function deleteGalleryPhoto(record: GalleryPhotoRecord): Promise<vo
   const target = parseStorageTarget(supabaseGalleryImagesBucket, 'gallery');
 
   if (record.image_url) {
-    await deleteStorageFile(target.bucket, record.image_url);
+    await deleteStorageFileSafely(target.bucket, record.image_url);
   }
 
   const { error } = await supabase.from(supabaseGalleryTable).delete().eq('id', record.id);

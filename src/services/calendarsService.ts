@@ -5,17 +5,16 @@ import {
 } from '../lib/supabase';
 import {
   deleteStorageFile,
+  deleteStorageFileSafely,
   parseStorageTarget,
   uploadFileToStorage,
   validateFile
 } from './storageUtils';
 
-export const programLevels = ['Undergraduate', 'Postgraduate', 'Professional Diplomas'] as const;
-export type ProgramLevel = (typeof programLevels)[number];
-
 export interface CalendarRecord {
   id: string;
-  program_level: ProgramLevel;
+  title: string;
+  program_level: string;
   year: number;
   file_path: string;
   created_at: string;
@@ -23,17 +22,12 @@ export interface CalendarRecord {
 }
 
 export interface CalendarInput {
-  programLevel: ProgramLevel;
-  year: number;
+  title: string;
 }
 
 function validateCalendarInput(input: CalendarInput): void {
-  if (!programLevels.includes(input.programLevel)) {
-    throw new Error('Please choose a valid program level.');
-  }
-
-  if (!Number.isInteger(input.year) || input.year < 2000 || input.year > 2100) {
-    throw new Error('Please choose a valid year between 2000 and 2100.');
+  if (!input.title.trim()) {
+    throw new Error('Please enter a title.');
   }
 }
 
@@ -63,7 +57,6 @@ export async function listCalendarsForYear(year: number): Promise<CalendarRecord
     .from(supabaseCalendarsTable)
     .select('*')
     .eq('year', year)
-    .order('program_level', { ascending: true })
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -89,8 +82,9 @@ export async function createCalendar(input: CalendarInput, pdfFile: File): Promi
   const now = new Date().toISOString();
   const { error } = await supabase.from(supabaseCalendarsTable).insert({
     id,
-    program_level: input.programLevel,
-    year: input.year,
+    title: input.title.trim(),
+    program_level: 'Undergraduate',
+    year: new Date().getFullYear(),
     file_path: filePath,
     created_at: now,
     updated_at: now
@@ -130,8 +124,7 @@ export async function updateCalendarWithFile(
   const { error } = await supabase
     .from(supabaseCalendarsTable)
     .update({
-      program_level: input.programLevel,
-      year: input.year,
+      title: input.title.trim(),
       file_path: nextFilePath,
       updated_at: new Date().toISOString()
     })
@@ -153,7 +146,7 @@ export async function deleteCalendar(id: string, filePath?: string | null): Prom
   const target = parseStorageTarget(supabaseCalendarFilesBucket, 'calendars');
 
   if (filePath) {
-    await deleteStorageFile(target.bucket, filePath);
+    await deleteStorageFileSafely(target.bucket, filePath);
   }
 
   const { error } = await supabase.from(supabaseCalendarsTable).delete().eq('id', id);

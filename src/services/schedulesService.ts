@@ -5,12 +5,15 @@ import {
 } from '../lib/supabase';
 import {
   deleteStorageFile,
+  deleteStorageFileSafely,
   parseStorageTarget,
   uploadFileToStorage,
   validateFile
 } from './storageUtils';
 
-export const scheduleTypes = ['Normal', 'Quiz 1', 'Quiz 2', 'Final'] as const;
+export const scheduleCategories = ['exams', 'lectures_sections'] as const;
+export type ScheduleCategory = (typeof scheduleCategories)[number];
+export const scheduleTypes = ['Quiz 1', 'Quiz 2', 'Final', 'Semester Schedule'] as const;
 export type ScheduleType = (typeof scheduleTypes)[number];
 
 export const semesterTypes = ['Fall', 'Spring', 'Summer'] as const;
@@ -18,6 +21,8 @@ export type SemesterType = (typeof semesterTypes)[number];
 
 export interface ScheduleRecord {
   id: string;
+  title: string;
+  category: ScheduleCategory;
   schedule_type: ScheduleType;
   semester: SemesterType;
   year: number;
@@ -27,14 +32,32 @@ export interface ScheduleRecord {
 }
 
 export interface ScheduleInput {
+  title: string;
+  category: ScheduleCategory;
   scheduleType: ScheduleType;
   semester: SemesterType;
   year: number;
 }
 
 function validateScheduleInput(input: ScheduleInput): void {
+  if (!input.title.trim()) {
+    throw new Error('Please enter a title.');
+  }
+
+  if (!scheduleCategories.includes(input.category)) {
+    throw new Error('Please choose a valid category.');
+  }
+
   if (!scheduleTypes.includes(input.scheduleType)) {
     throw new Error('Please choose a valid schedule type.');
+  }
+
+  if (input.category === 'lectures_sections' && input.scheduleType !== 'Semester Schedule') {
+    throw new Error('Lectures / Sections must use Semester Schedule.');
+  }
+
+  if (input.category === 'exams' && input.scheduleType === 'Semester Schedule') {
+    throw new Error('Please choose a valid exam type.');
   }
 
   if (!semesterTypes.includes(input.semester)) {
@@ -72,6 +95,7 @@ export async function listSchedulesForYear(year: number): Promise<ScheduleRecord
     .from(supabaseSchedulesTable)
     .select('*')
     .eq('year', year)
+    .order('category', { ascending: true })
     .order('semester', { ascending: true })
     .order('created_at', { ascending: false });
 
@@ -98,6 +122,8 @@ export async function createSchedule(input: ScheduleInput, pdfFile: File): Promi
   const now = new Date().toISOString();
   const { error } = await supabase.from(supabaseSchedulesTable).insert({
     id,
+    title: input.title.trim(),
+    category: input.category,
     schedule_type: input.scheduleType,
     semester: input.semester,
     year: input.year,
@@ -124,6 +150,8 @@ export async function updateSchedule(id: string, input: ScheduleInput): Promise<
   const { error } = await supabase
     .from(supabaseSchedulesTable)
     .update({
+      title: input.title.trim(),
+      category: input.category,
       schedule_type: input.scheduleType,
       semester: input.semester,
       year: input.year,
@@ -165,6 +193,8 @@ export async function updateScheduleWithFile(
   const { error } = await supabase
     .from(supabaseSchedulesTable)
     .update({
+      title: input.title.trim(),
+      category: input.category,
       schedule_type: input.scheduleType,
       semester: input.semester,
       year: input.year,
@@ -189,7 +219,7 @@ export async function deleteSchedule(id: string, filePath?: string | null): Prom
   const target = parseStorageTarget(supabaseScheduleFilesBucket, 'schedules');
 
   if (filePath) {
-    await deleteStorageFile(target.bucket, filePath);
+    await deleteStorageFileSafely(target.bucket, filePath);
   }
 
   const { error } = await supabase.from(supabaseSchedulesTable).delete().eq('id', id);

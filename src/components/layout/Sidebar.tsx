@@ -43,14 +43,24 @@ export function Sidebar({
     label: 'Educational Programs'
   },
   {
-    id: 'Advisor Resources',
+    id: 'Academic Advising',
     icon: GraduationCapIcon,
-    label: 'Advisor Resources'
+    label: 'Academic Advising'
   },
   {
-    id: 'Student Resources',
-    icon: SchoolIcon,
-    label: 'Student Resources'
+    id: 'Registration',
+    icon: GraduationCapIcon,
+    label: 'Registration'
+  },
+  {
+    id: 'Smart E-Learning',
+    icon: GraduationCapIcon,
+    label: 'Smart E-Learning'
+  },
+  {
+    id: 'Honor List',
+    icon: GraduationCapIcon,
+    label: 'Honor List'
   },
   {
     id: 'Schedules',
@@ -97,6 +107,16 @@ export function Sidebar({
       id: 'Gallery',
       icon: ImagesIcon,
       label: 'Photo Gallery'
+    },
+  {
+    id: 'Advisor Resources',
+    icon: GraduationCapIcon,
+    label: 'Advisor Resources'
+  },
+  {
+    id: 'Student Resources',
+    icon: SchoolIcon,
+    label: 'Student Resources'
     },
   ...(isSuperAdmin ? [{
     id: 'Manage Advisors',

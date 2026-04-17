@@ -13,6 +13,10 @@ import { Calendars } from './pages/Calendars';
 import { Activities } from './pages/Activities';
 import { Gallery } from './pages/Gallery';
 import { AdvisorResources } from './pages/AdvisorResources';
+import { AcademicAdvising } from './pages/AcademicAdvising';
+import { Registration } from './pages/Registration';
+import { SmartELearning } from './pages/SmartELearning';
+import { HonorList } from './pages/HonorList';
 import { StudentResources } from './pages/StudentResources';
 import { Announcements } from './pages/Announcements';
 import { Reports } from './pages/Reports';
@@ -216,6 +220,14 @@ export function App() {
         return <Gallery />;
       case 'Advisor Resources':
         return <AdvisorResources />;
+      case 'Academic Advising':
+        return <AcademicAdvising />;
+      case 'Registration':
+        return <Registration />;
+      case 'Smart E-Learning':
+        return <SmartELearning />;
+      case 'Honor List':
+        return <HonorList />;
       case 'Student Resources':
         return <StudentResources />;
       case 'Announcements':

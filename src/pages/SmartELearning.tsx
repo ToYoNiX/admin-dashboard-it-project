@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  FileTextIcon,
+  ExternalLinkIcon,
+  PlayCircleIcon,
   SearchIcon,
   Trash2Icon,
   UploadIcon
@@ -11,51 +12,54 @@ import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { Pagination } from '../components/ui/Pagination';
 import {
-  createCalendar,
-  deleteCalendar,
-  listCalendarsForYear,
-  type CalendarInput,
-  type CalendarRecord,
-  updateCalendarWithFile
-} from '../services/calendarsService';
+  createSmartELearningVideo,
+  deleteSmartELearningVideo,
+  listSmartELearningVideos,
+  smartELearningSourceTypes,
+  type SmartELearningInput,
+  type SmartELearningRecord
+} from '../services/smartELearningService';
 import { getPublicFileUrl } from '../services/storageUtils';
-import { supabaseCalendarFilesBucket } from '../lib/supabase';
+import { supabaseResourcesFilesBucket } from '../lib/supabase';
 
-const currentYear = new Date().getFullYear();
-
-const initialForm: CalendarInput = {
-  title: ''
+const initialForm: SmartELearningInput = {
+  title: '',
+  sourceType: 'youtube',
+  youtubeUrl: ''
 };
 
-type CalendarTab = 'add' | 'view';
+type TabMode = 'add' | 'view';
 
-export function Calendars() {
+function labelizeSource(type: string): string {
+  return type === 'youtube' ? 'YouTube Link' : 'Upload Video';
+}
+
+export function SmartELearning() {
   const ITEMS_PER_PAGE = 6;
-  const [activeTab, setActiveTab] = useState<CalendarTab>('add');
-  const [records, setRecords] = useState<CalendarRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<TabMode>('add');
+  const [records, setRecords] = useState<SmartELearningRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [form, setForm] = useState<CalendarInput>(initialForm);
-  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
-  const [editingRecord, setEditingRecord] = useState<CalendarRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<CalendarRecord | null>(null);
+  const [form, setForm] = useState<SmartELearningInput>(initialForm);
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<SmartELearningRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    void loadCalendars();
+    void loadRecords();
   }, []);
 
-  async function loadCalendars(): Promise<void> {
+  async function loadRecords(): Promise<void> {
     try {
       setIsLoading(true);
       setSubmitError('');
-      const data = await listCalendarsForYear(currentYear);
+      const data = await listSmartELearningVideos();
       setRecords(data);
       setCurrentPage(1);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to load calendars.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to load smart e-learning videos.');
     } finally {
       setIsLoading(false);
     }
@@ -63,19 +67,8 @@ export function Calendars() {
 
   function resetForm(): void {
     setForm(initialForm);
-    setSelectedPdfFile(null);
-    setEditingRecord(null);
+    setSelectedVideoFile(null);
     setSubmitError('');
-  }
-
-  function startEdit(record: CalendarRecord): void {
-    setEditingRecord(record);
-    setSubmitError('');
-    setForm({
-      title: record.title
-    });
-    setSelectedPdfFile(null);
-    setActiveTab('add');
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -84,26 +77,12 @@ export function Calendars() {
     try {
       setIsSaving(true);
       setSubmitError('');
-
-      if (editingRecord) {
-        await updateCalendarWithFile(editingRecord.id, form, {
-          pdfFile: selectedPdfFile,
-          existingFilePath: editingRecord.file_path
-        });
-      } else {
-        if (!selectedPdfFile) {
-          setSubmitError('Please attach a calendar PDF file.');
-          setIsSaving(false);
-          return;
-        }
-        await createCalendar(form, selectedPdfFile);
-      }
-
-      await loadCalendars();
+      await createSmartELearningVideo(form, selectedVideoFile);
+      await loadRecords();
       resetForm();
       setActiveTab('view');
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to save calendar.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save smart e-learning video.');
     } finally {
       setIsSaving(false);
     }
@@ -116,14 +95,11 @@ export function Calendars() {
 
     try {
       setSubmitError('');
-      await deleteCalendar(deleteTarget.id, deleteTarget.file_path);
-      if (editingRecord?.id === deleteTarget.id) {
-        resetForm();
-      }
+      await deleteSmartELearningVideo(deleteTarget);
       setDeleteTarget(null);
-      await loadCalendars();
+      await loadRecords();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to delete calendar.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to delete smart e-learning video.');
     }
   }
 
@@ -137,7 +113,6 @@ export function Calendars() {
   }, [records, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE));
-
   const paginatedRecords = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
@@ -145,7 +120,7 @@ export function Calendars() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <h1 className="text-2xl font-bold text-must-text-primary">Calendar Management</h1>
+      <h1 className="text-2xl font-bold text-must-text-primary">Smart E-Learning</h1>
 
       <div className="flex border-b border-must-border overflow-x-auto">
         <button
@@ -164,10 +139,9 @@ export function Calendars() {
 
       {activeTab === 'add' ? (
         <Card className="max-w-3xl">
-          <CardHeader>
-            <h2 className="text-lg font-semibold text-must-text-primary">
-              {editingRecord ? 'Edit Calendar' : 'Add Calendar'}
-            </h2>
+          <CardHeader className="flex flex-row items-center gap-2">
+            <PlayCircleIcon className="w-5 h-5 text-must-green" />
+            <h2 className="text-lg font-semibold text-must-text-primary">Add Smart E-Learning Video</h2>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -175,36 +149,62 @@ export function Calendars() {
                 label="Title"
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Enter calendar title"
+                placeholder="Enter video title"
                 required
               />
 
               <div>
-                <label className="block text-sm font-medium text-must-text-primary mb-2">File</label>
-                <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
-                  <UploadIcon className="w-4 h-4" />
-                  <span className="text-sm">Choose file</span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="application/pdf,.pdf"
-                    onChange={(event) => setSelectedPdfFile(event.target.files?.[0] ?? null)}
-                    required={!editingRecord}
-                  />
-                </label>
-                <p className="mt-2 text-xs text-must-text-secondary">
-                  {selectedPdfFile ? selectedPdfFile.name : editingRecord ? 'Current file kept unless replaced' : 'No file selected'}
-                </p>
+                <label className="block text-sm font-medium text-must-text-primary mb-1">Video Source</label>
+                <select
+                  value={form.sourceType}
+                  onChange={(event) => setForm((prev) => ({ ...prev, sourceType: event.target.value as SmartELearningInput['sourceType'] }))}
+                  className="w-full rounded-lg border border-must-border bg-must-surface text-must-text-primary px-4 py-2 text-sm focus:ring-2 focus:ring-must-green outline-none"
+                >
+                  {smartELearningSourceTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {labelizeSource(type)}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {form.sourceType === 'youtube' ? (
+                <Input
+                  label="YouTube Link"
+                  type="url"
+                  value={form.youtubeUrl}
+                  onChange={(event) => setForm((prev) => ({ ...prev, youtubeUrl: event.target.value }))}
+                  placeholder="https://youtube.com/..."
+                  required
+                />
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-must-text-primary mb-2">Video File</label>
+                  <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
+                    <UploadIcon className="w-4 h-4" />
+                    <span className="text-sm">Choose video</span>
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime"
+                      className="hidden"
+                      onChange={(event) => setSelectedVideoFile(event.target.files?.[0] ?? null)}
+                      required
+                    />
+                  </label>
+                  <p className="mt-2 text-xs text-must-text-secondary">
+                    {selectedVideoFile ? selectedVideoFile.name : 'No video selected'}
+                  </p>
+                </div>
+              )}
 
               {submitError ? <p className="text-sm text-red-500">{submitError}</p> : null}
 
               <div className="flex gap-3 pt-1">
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : editingRecord ? 'Update Calendar' : 'Add Calendar'}
+                  {isSaving ? 'Saving...' : 'Add Video'}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm} disabled={isSaving}>
-                  {editingRecord ? 'Cancel Edit' : 'Clear'}
+                  Clear
                 </Button>
               </div>
             </form>
@@ -231,13 +231,13 @@ export function Calendars() {
 
           {isLoading ? (
             <Card>
-              <CardContent className="p-6 text-sm text-must-text-secondary">Loading calendars...</CardContent>
+              <CardContent className="p-6 text-sm text-must-text-secondary">Loading smart e-learning videos...</CardContent>
             </Card>
           ) : null}
 
           {!isLoading && filteredRecords.length === 0 ? (
             <Card>
-              <CardContent className="p-6 text-sm text-must-text-secondary">No calendars found yet.</CardContent>
+              <CardContent className="p-6 text-sm text-must-text-secondary">No smart e-learning videos found yet.</CardContent>
             </Card>
           ) : null}
 
@@ -245,27 +245,21 @@ export function Calendars() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {paginatedRecords.map((record) => {
-                  const fileUrl = getPublicFileUrl(supabaseCalendarFilesBucket, record.file_path);
+                  const videoUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.video_path);
+                  const actionUrl = record.source_type === 'youtube' ? record.youtube_url : videoUrl;
 
                   return (
                     <Card key={record.id}>
                       <CardContent className="p-4 space-y-4">
                         <div className="flex items-start gap-3">
                           <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-must-text-secondary">
-                            <FileTextIcon className="w-5 h-5" />
+                            <PlayCircleIcon className="w-5 h-5" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            {fileUrl ? (
-                              <button
-                                type="button"
-                                onClick={() => window.open(fileUrl, '_blank', 'noopener,noreferrer')}
-                                className="text-left text-base font-semibold text-must-text-primary break-words hover:text-must-green hover:underline"
-                              >
-                                {record.title}
-                              </button>
-                            ) : (
-                              <h3 className="text-base font-semibold text-must-text-primary break-words">{record.title}</h3>
-                            )}
+                            <h3 className="text-base font-semibold text-must-text-primary break-words">{record.title}</h3>
+                            <p className="text-xs text-must-text-secondary mt-1">
+                              {labelizeSource(record.source_type)} • {new Date(record.created_at).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
 
@@ -274,9 +268,14 @@ export function Calendars() {
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => startEdit(record)}
+                            icon={<ExternalLinkIcon className="w-4 h-4" />}
+                            onClick={() => {
+                              if (actionUrl) {
+                                window.open(actionUrl, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
                           >
-                            Edit
+                            Open
                           </Button>
                           <Button
                             type="button"
@@ -298,7 +297,7 @@ export function Calendars() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 totalItems={filteredRecords.length}
-                itemLabel="calendars"
+                itemLabel="videos"
                 onPageChange={setCurrentPage}
               />
             </>
@@ -308,13 +307,11 @@ export function Calendars() {
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
-        title="Delete Calendar"
-        message={deleteTarget ? `Delete "${deleteTarget.title}"? This action cannot be undone.` : 'Delete this calendar?'}
+        title="Delete Smart E-Learning Video"
+        message={`Delete "${deleteTarget?.title ?? ''}"? This action cannot be undone.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"
-        onConfirm={() => {
-          void confirmDelete();
-        }}
+        onConfirm={() => void confirmDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
     </div>

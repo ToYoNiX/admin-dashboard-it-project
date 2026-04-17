@@ -5,6 +5,7 @@ import {
 } from '../lib/supabase';
 import {
   deleteStorageFile,
+  deleteStorageFileSafely,
   parseStorageTarget,
   uploadFileToStorage,
   validateFile
@@ -216,7 +217,7 @@ export async function deleteNews(id: string, imagePaths?: string[] | null): Prom
   const target = parseStorageTarget(supabaseNewsImagesBucket, 'news');
 
   for (const path of uniqueImagePaths(imagePaths ?? [])) {
-    await deleteStorageFile(target.bucket, path);
+    await deleteStorageFileSafely(target.bucket, path);
   }
 
   const { error } = await supabase.from(supabaseNewsTable).delete().eq('id', id);

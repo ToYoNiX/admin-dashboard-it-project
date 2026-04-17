@@ -75,6 +75,18 @@ export async function deleteStorageFile(bucket: string, filePath?: string | null
   }
 }
 
+export async function deleteStorageFileSafely(bucket: string, filePath?: string | null): Promise<void> {
+  if (!filePath) {
+    return;
+  }
+
+  try {
+    await deleteStorageFile(bucket, filePath);
+  } catch {
+    // Best-effort cleanup for delete flows.
+  }
+}
+
 export function getPublicFileUrl(rawStorageValue: string, filePath?: string | null): string | null {
   if (!supabase || !filePath) {
     return null;

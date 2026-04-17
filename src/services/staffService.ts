@@ -4,7 +4,7 @@ import {
   supabaseImageBucket,
   supabaseStaffTable
 } from '../lib/supabase';
-import { deleteStorageFile } from './storageUtils';
+import { deleteStorageFile, deleteStorageFileSafely } from './storageUtils';
 
 export interface StaffPayload {
   title: string;
@@ -223,11 +223,11 @@ export async function deleteStaffProfile(record: StaffRecord): Promise<void> {
   const imageTarget = parseStorageTarget(supabaseImageBucket, 'images');
 
   if (record.cv_path) {
-    await deleteStorageFile(cvTarget.bucket, record.cv_path);
+    await deleteStorageFileSafely(cvTarget.bucket, record.cv_path);
   }
 
   if (record.image_path) {
-    await deleteStorageFile(imageTarget.bucket, record.image_path);
+    await deleteStorageFileSafely(imageTarget.bucket, record.image_path);
   }
 
   const { error } = await supabase.from(supabaseStaffTable).delete().eq('id', record.id);

@@ -5,6 +5,7 @@ import {
 } from '../lib/supabase';
 import {
   deleteStorageFile,
+  deleteStorageFileSafely,
   parseStorageTarget,
   uploadFileToStorage,
   validateFile
@@ -168,7 +169,7 @@ export async function deleteActivity(id: string, imagePath?: string | null): Pro
   const target = parseStorageTarget(supabaseActivityImagesBucket, 'activities');
 
   if (imagePath) {
-    await deleteStorageFile(target.bucket, imagePath);
+    await deleteStorageFileSafely(target.bucket, imagePath);
   }
 
   const { error } = await supabase.from(supabaseActivitiesTable).delete().eq('id', id);

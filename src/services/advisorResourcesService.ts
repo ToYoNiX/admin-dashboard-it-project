@@ -5,6 +5,7 @@ import {
 } from '../lib/supabase';
 import {
   deleteStorageFile,
+  deleteStorageFileSafely,
   parseStorageTarget,
   uploadFileToStorage,
   validateFile
@@ -254,11 +255,11 @@ export async function deleteAdvisorResource(record: AdvisorResourceRecord): Prom
   const target = parseStorageTarget(supabaseResourcesFilesBucket, 'resources');
 
   if (record.file_path) {
-    await deleteStorageFile(target.bucket, record.file_path);
+    await deleteStorageFileSafely(target.bucket, record.file_path);
   }
 
   if (record.thumbnail_path) {
-    await deleteStorageFile(target.bucket, record.thumbnail_path);
+    await deleteStorageFileSafely(target.bucket, record.thumbnail_path);
   }
 
   const { error } = await supabase.from(supabaseAdvisorResourcesTable).delete().eq('id', record.id);

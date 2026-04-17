@@ -25,6 +25,14 @@ export const supabaseGalleryTable =
   import.meta.env.VITE_SUPABASE_GALLERY_TABLE || 'photo_gallery';
 export const supabaseAdvisorResourcesTable =
   import.meta.env.VITE_SUPABASE_ADVISOR_RESOURCES_TABLE || 'advisor_resources';
+export const supabaseAcademicAdvisingTable =
+  import.meta.env.VITE_SUPABASE_ACADEMIC_ADVISING_TABLE || 'academic_advising';
+export const supabaseRegistrationVideosTable =
+  import.meta.env.VITE_SUPABASE_REGISTRATION_VIDEOS_TABLE || 'registration_videos';
+export const supabaseSmartELearningTable =
+  import.meta.env.VITE_SUPABASE_SMART_ELEARNING_TABLE || 'smart_elearning_videos';
+export const supabaseHonorListResourcesTable =
+  import.meta.env.VITE_SUPABASE_HONOR_LIST_RESOURCES_TABLE || 'honor_list_resources';
 export const supabaseStudentResourcesTable =
   import.meta.env.VITE_SUPABASE_STUDENT_RESOURCES_TABLE || 'student_resources';
 export const supabaseStudentsTable =

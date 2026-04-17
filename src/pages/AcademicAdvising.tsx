@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FileTextIcon,
+  GraduationCapIcon,
   SearchIcon,
   Trash2Icon,
   UploadIcon
@@ -11,51 +12,47 @@ import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { Pagination } from '../components/ui/Pagination';
 import {
-  createCalendar,
-  deleteCalendar,
-  listCalendarsForYear,
-  type CalendarInput,
-  type CalendarRecord,
-  updateCalendarWithFile
-} from '../services/calendarsService';
+  createAcademicAdvisingRecord,
+  deleteAcademicAdvisingRecord,
+  listAcademicAdvisingRecords,
+  type AcademicAdvisingInput,
+  type AcademicAdvisingRecord
+} from '../services/academicAdvisingService';
 import { getPublicFileUrl } from '../services/storageUtils';
-import { supabaseCalendarFilesBucket } from '../lib/supabase';
+import { supabaseResourcesFilesBucket } from '../lib/supabase';
 
-const currentYear = new Date().getFullYear();
-
-const initialForm: CalendarInput = {
+const initialForm: AcademicAdvisingInput = {
   title: ''
 };
 
-type CalendarTab = 'add' | 'view';
+type AdvisingTab = 'add' | 'view';
 
-export function Calendars() {
+export function AcademicAdvising() {
   const ITEMS_PER_PAGE = 6;
-  const [activeTab, setActiveTab] = useState<CalendarTab>('add');
-  const [records, setRecords] = useState<CalendarRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<AdvisingTab>('add');
+  const [records, setRecords] = useState<AcademicAdvisingRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [form, setForm] = useState<CalendarInput>(initialForm);
-  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
-  const [editingRecord, setEditingRecord] = useState<CalendarRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<CalendarRecord | null>(null);
+  const [form, setForm] = useState<AcademicAdvisingInput>(initialForm);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<AcademicAdvisingRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    void loadCalendars();
+    void loadRecords();
   }, []);
 
-  async function loadCalendars(): Promise<void> {
+  async function loadRecords(): Promise<void> {
     try {
       setIsLoading(true);
       setSubmitError('');
-      const data = await listCalendarsForYear(currentYear);
+      const data = await listAcademicAdvisingRecords();
       setRecords(data);
       setCurrentPage(1);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to load calendars.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to load academic advising records.');
     } finally {
       setIsLoading(false);
     }
@@ -63,19 +60,8 @@ export function Calendars() {
 
   function resetForm(): void {
     setForm(initialForm);
-    setSelectedPdfFile(null);
-    setEditingRecord(null);
+    setSelectedFile(null);
     setSubmitError('');
-  }
-
-  function startEdit(record: CalendarRecord): void {
-    setEditingRecord(record);
-    setSubmitError('');
-    setForm({
-      title: record.title
-    });
-    setSelectedPdfFile(null);
-    setActiveTab('add');
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -85,25 +71,16 @@ export function Calendars() {
       setIsSaving(true);
       setSubmitError('');
 
-      if (editingRecord) {
-        await updateCalendarWithFile(editingRecord.id, form, {
-          pdfFile: selectedPdfFile,
-          existingFilePath: editingRecord.file_path
-        });
-      } else {
-        if (!selectedPdfFile) {
-          setSubmitError('Please attach a calendar PDF file.');
-          setIsSaving(false);
-          return;
-        }
-        await createCalendar(form, selectedPdfFile);
+      if (!selectedFile) {
+        throw new Error('Please choose a file.');
       }
 
-      await loadCalendars();
+      await createAcademicAdvisingRecord(form, selectedFile);
+      await loadRecords();
       resetForm();
       setActiveTab('view');
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to save calendar.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save academic advising item.');
     } finally {
       setIsSaving(false);
     }
@@ -116,14 +93,11 @@ export function Calendars() {
 
     try {
       setSubmitError('');
-      await deleteCalendar(deleteTarget.id, deleteTarget.file_path);
-      if (editingRecord?.id === deleteTarget.id) {
-        resetForm();
-      }
+      await deleteAcademicAdvisingRecord(deleteTarget);
       setDeleteTarget(null);
-      await loadCalendars();
+      await loadRecords();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to delete calendar.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to delete academic advising item.');
     }
   }
 
@@ -145,7 +119,7 @@ export function Calendars() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <h1 className="text-2xl font-bold text-must-text-primary">Calendar Management</h1>
+      <h1 className="text-2xl font-bold text-must-text-primary">Academic Advising</h1>
 
       <div className="flex border-b border-must-border overflow-x-auto">
         <button
@@ -164,10 +138,9 @@ export function Calendars() {
 
       {activeTab === 'add' ? (
         <Card className="max-w-3xl">
-          <CardHeader>
-            <h2 className="text-lg font-semibold text-must-text-primary">
-              {editingRecord ? 'Edit Calendar' : 'Add Calendar'}
-            </h2>
+          <CardHeader className="flex flex-row items-center gap-2">
+            <GraduationCapIcon className="w-5 h-5 text-must-green" />
+            <h2 className="text-lg font-semibold text-must-text-primary">Add Academic Advising Item</h2>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -175,7 +148,7 @@ export function Calendars() {
                 label="Title"
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Enter calendar title"
+                placeholder="Enter advising title"
                 required
               />
 
@@ -187,13 +160,12 @@ export function Calendars() {
                   <input
                     type="file"
                     className="hidden"
-                    accept="application/pdf,.pdf"
-                    onChange={(event) => setSelectedPdfFile(event.target.files?.[0] ?? null)}
-                    required={!editingRecord}
+                    onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                    required
                   />
                 </label>
                 <p className="mt-2 text-xs text-must-text-secondary">
-                  {selectedPdfFile ? selectedPdfFile.name : editingRecord ? 'Current file kept unless replaced' : 'No file selected'}
+                  {selectedFile ? selectedFile.name : 'No file selected'}
                 </p>
               </div>
 
@@ -201,10 +173,10 @@ export function Calendars() {
 
               <div className="flex gap-3 pt-1">
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : editingRecord ? 'Update Calendar' : 'Add Calendar'}
+                  {isSaving ? 'Saving...' : 'Add Item'}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm} disabled={isSaving}>
-                  {editingRecord ? 'Cancel Edit' : 'Clear'}
+                  Clear
                 </Button>
               </div>
             </form>
@@ -231,13 +203,13 @@ export function Calendars() {
 
           {isLoading ? (
             <Card>
-              <CardContent className="p-6 text-sm text-must-text-secondary">Loading calendars...</CardContent>
+              <CardContent className="p-6 text-sm text-must-text-secondary">Loading academic advising items...</CardContent>
             </Card>
           ) : null}
 
           {!isLoading && filteredRecords.length === 0 ? (
             <Card>
-              <CardContent className="p-6 text-sm text-must-text-secondary">No calendars found yet.</CardContent>
+              <CardContent className="p-6 text-sm text-must-text-secondary">No academic advising items found yet.</CardContent>
             </Card>
           ) : null}
 
@@ -245,7 +217,7 @@ export function Calendars() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {paginatedRecords.map((record) => {
-                  const fileUrl = getPublicFileUrl(supabaseCalendarFilesBucket, record.file_path);
+                  const fileUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.file_path);
 
                   return (
                     <Card key={record.id}>
@@ -266,18 +238,13 @@ export function Calendars() {
                             ) : (
                               <h3 className="text-base font-semibold text-must-text-primary break-words">{record.title}</h3>
                             )}
+                            <p className="text-xs text-must-text-secondary mt-1">
+                              Added {new Date(record.created_at).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 rounded-xl border border-must-border bg-slate-50 dark:bg-slate-800/30 p-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => startEdit(record)}
-                          >
-                            Edit
-                          </Button>
                           <Button
                             type="button"
                             variant="danger"
@@ -298,7 +265,7 @@ export function Calendars() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 totalItems={filteredRecords.length}
-                itemLabel="calendars"
+                itemLabel="items"
                 onPageChange={setCurrentPage}
               />
             </>
@@ -308,13 +275,11 @@ export function Calendars() {
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
-        title="Delete Calendar"
-        message={deleteTarget ? `Delete "${deleteTarget.title}"? This action cannot be undone.` : 'Delete this calendar?'}
+        title="Delete Academic Advising Item"
+        message={`Delete "${deleteTarget?.title ?? ''}"? This action cannot be undone.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"
-        onConfirm={() => {
-          void confirmDelete();
-        }}
+        onConfirm={() => void confirmDelete()}
         onCancel={() => setDeleteTarget(null)}
       />
     </div>
