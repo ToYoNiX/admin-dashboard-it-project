@@ -5,7 +5,7 @@ import { signInWithPassword } from '../../services/authService';
 import { AuthShell } from './AuthShell';
 
 export function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export function LoginPage() {
     setError(null);
 
     try {
-      await signInWithPassword(email.trim(), password);
+      await signInWithPassword(loginIdentifier.trim(), password);
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : 'Failed to login.';
       setError(message);
@@ -29,11 +29,11 @@ export function LoginPage() {
     <AuthShell title="Login">
       <form className="space-y-4" onSubmit={handleSubmit}>
         <Input
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="advisor@must.edu.eg"
+          label="Username or Email"
+          type="text"
+          value={loginIdentifier}
+          onChange={(event) => setLoginIdentifier(event.target.value)}
+          placeholder="username or advisor@must.edu.eg"
           required
         />
         <Input

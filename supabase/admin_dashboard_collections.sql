@@ -184,6 +184,23 @@ create table if not exists public.student_honor_list_documents (
 alter table if exists public.staff
 add column if not exists department text;
 
+alter table if exists public.staff
+add column if not exists email text;
+
+update public.staff
+set email = lower(trim(email))
+where email is not null;
+
+alter table if exists public.staff
+drop constraint if exists staff_email_not_blank;
+
+alter table if exists public.staff
+add constraint staff_email_not_blank check (email is null or length(trim(email)) > 0);
+
+create unique index if not exists staff_email_unique_idx
+on public.staff (lower(email))
+where email is not null;
+
 alter table if exists public.news
 add column if not exists image_urls text[];
 
@@ -917,14 +934,53 @@ using (bucket_id = 'resources-files');
 create table if not exists public.advisor_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
+  username text,
   full_name text,
   avatar_url text,
   is_super_admin boolean not null default false,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint advisor_profiles_email_not_blank check (length(trim(email)) > 0)
+  constraint advisor_profiles_email_not_blank check (length(trim(email)) > 0),
+  constraint advisor_profiles_username_not_blank check (username is null or length(trim(username)) > 0)
 );
+
+alter table if exists public.advisor_profiles
+add column if not exists username text;
+
+with base_usernames as (
+  select
+    ap.id,
+    lower(
+      coalesce(
+        nullif(trim(ap.username), ''),
+        split_part(ap.email, '@', 1)
+      )
+    ) as base_username
+  from public.advisor_profiles ap
+),
+ranked as (
+  select
+    bu.id,
+    bu.base_username,
+    row_number() over (partition by bu.base_username order by bu.id) as rn
+  from base_usernames bu
+)
+update public.advisor_profiles ap
+set username = case
+  when ranked.rn = 1 then ranked.base_username
+  else ranked.base_username || '_' || right(ap.id::text, 4)
+end
+from ranked
+where ap.id = ranked.id
+  and (ap.username is null or trim(ap.username) = '' or ap.username <> case
+    when ranked.rn = 1 then ranked.base_username
+    else ranked.base_username || '_' || right(ap.id::text, 4)
+  end);
+
+create unique index if not exists advisor_profiles_username_unique_idx
+on public.advisor_profiles (lower(username))
+where username is not null;
 
 create table if not exists public.advisor_invites (
   id uuid primary key default gen_random_uuid(),
@@ -1058,6 +1114,7 @@ as $$
 declare
   invite_record public.advisor_invites%rowtype;
   display_name text;
+  login_name text;
   should_activate boolean := false;
   should_be_super_admin boolean := false;
 begin
@@ -1092,9 +1149,17 @@ begin
     split_part(new.email, '@', 1)
   );
 
+  login_name := lower(
+    coalesce(
+      nullif(new.raw_user_meta_data ->> 'username', ''),
+      split_part(new.email, '@', 1)
+    )
+  );
+
   insert into public.advisor_profiles (
     id,
     email,
+    username,
     full_name,
     avatar_url,
     is_super_admin,
@@ -1105,6 +1170,7 @@ begin
   values (
     new.id,
     lower(new.email),
+    login_name,
     display_name,
     nullif(new.raw_user_meta_data ->> 'avatar_url', ''),
     should_be_super_admin,
@@ -1115,6 +1181,7 @@ begin
   on conflict (id) do update
   set
     email = excluded.email,
+    username = coalesce(advisor_profiles.username, excluded.username),
     full_name = coalesce(excluded.full_name, advisor_profiles.full_name),
     is_super_admin = advisor_profiles.is_super_admin or excluded.is_super_admin,
     is_active = advisor_profiles.is_active or excluded.is_active,
