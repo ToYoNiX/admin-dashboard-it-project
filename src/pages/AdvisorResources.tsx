@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   DownloadIcon,
   FileTextIcon,
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { Pagination } from '../components/ui/Pagination';
 import {
   advisorResourceTypes,
   createAdvisorResource,
@@ -37,6 +38,7 @@ function labelizeType(type: string): string {
 }
 
 export function AdvisorResources() {
+  const ITEMS_PER_PAGE = 6;
   const [records, setRecords] = useState<AdvisorResourceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,6 +49,7 @@ export function AdvisorResources() {
   const [selectedThumbnailFile, setSelectedThumbnailFile] = useState<File | null>(null);
   const [editingRecord, setEditingRecord] = useState<AdvisorResourceRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdvisorResourceRecord | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const typeTabs = ['All', 'File', 'Video', 'Link'];
 
@@ -60,6 +63,7 @@ export function AdvisorResources() {
       setSubmitError('');
       const data = await listAdvisorResources();
       setRecords(data);
+      setCurrentPage(1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to load advisor resources.');
     } finally {
@@ -133,6 +137,17 @@ export function AdvisorResources() {
     }
   }
 
+  const filteredRecords = useMemo(() => {
+    return records.filter((record) => activeTypeTab === 'All' || record.resource_type === activeTypeTab.toLowerCase());
+  }, [activeTypeTab, records]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE));
+
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, filteredRecords]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <h1 className="text-2xl font-bold text-must-text-primary">Advisor Resources</h1>
@@ -141,7 +156,10 @@ export function AdvisorResources() {
         {typeTabs.map((tab) => (
           <button
             key={tab}
-            onClick={() => setActiveTypeTab(tab)}
+            onClick={() => {
+              setActiveTypeTab(tab);
+              setCurrentPage(1);
+            }}
             className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTypeTab === tab ? 'border-must-green text-must-green' : 'border-transparent text-must-text-secondary hover:text-must-text-primary hover:border-slate-300'}`}
           >
             {tab}
@@ -282,10 +300,9 @@ export function AdvisorResources() {
           ) : null}
 
           {!isLoading ? (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {records
-                .filter((record) => activeTypeTab === 'All' || record.resource_type === activeTypeTab.toLowerCase())
-                .map((record) => {
+              {paginatedRecords.map((record) => {
                 const fileUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.file_path);
                 const thumbnailUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.thumbnail_path);
                 const actionUrl = record.resource_type === 'file' ? fileUrl : record.resource_url;
@@ -322,11 +339,11 @@ export function AdvisorResources() {
                         className="mt-3 w-full h-32 object-cover rounded-lg border border-must-border" /> :
                       null}
 
-                      <div className="mt-4 flex items-center justify-between gap-2">
+                      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-must-border bg-slate-50/70 p-3 dark:bg-slate-800/30 sm:flex-row sm:items-center sm:justify-between">
                         <Button type="button" size="sm" variant="outline" onClick={() => startEdit(record)}>
-                          Edit
+                          Edit Resource
                         </Button>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
                             size="sm"
@@ -357,6 +374,14 @@ export function AdvisorResources() {
                 );
                 })}
             </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredRecords.length}
+              itemLabel="resources"
+              onPageChange={setCurrentPage}
+            />
+            </>
           ) : null}
         </div>
       </div>

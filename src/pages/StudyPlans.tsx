@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpenCheckIcon,
   DownloadIcon,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Pagination } from '../components/ui/Pagination';
 import { supabaseStudyPlanFilesBucket } from '../lib/supabase';
 import { getPublicFileUrl } from '../services/storageUtils';
 import {
@@ -59,6 +60,7 @@ function createEmptyRemoveFlags(): Partial<Record<StudyPlanSingleField, boolean>
 }
 
 export function StudyPlans() {
+  const ITEMS_PER_PAGE = 5;
   const [activeTab, setActiveTab] = useState('All');
   const [record, setRecord] = useState<StudyPlanRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,12 +72,31 @@ export function StudyPlans() {
   );
   const [professionalDiplomaFiles, setProfessionalDiplomaFiles] = useState<File[]>([]);
   const [removeProfessionalDiplomaPaths, setRemoveProfessionalDiplomaPaths] = useState<string[]>([]);
+  const [existingDiplomaPage, setExistingDiplomaPage] = useState(1);
+  const [pendingDiplomaPage, setPendingDiplomaPage] = useState(1);
 
   const [submitError, setSubmitError] = useState('');
 
   const tabs = ['All', 'Undergraduate', 'Postgraduate', 'Professional Diplomas'];
 
   const singleFileInputRefs = useRef<Partial<Record<StudyPlanSingleField, HTMLInputElement | null>>>({});
+
+  const visibleExistingDiplomaPaths = useMemo(() => {
+    return (record?.professional_diplomas ?? []).filter((path) => !removeProfessionalDiplomaPaths.includes(path));
+  }, [record, removeProfessionalDiplomaPaths]);
+
+  const existingDiplomaTotalPages = Math.max(1, Math.ceil(visibleExistingDiplomaPaths.length / ITEMS_PER_PAGE));
+  const pendingDiplomaTotalPages = Math.max(1, Math.ceil(professionalDiplomaFiles.length / ITEMS_PER_PAGE));
+
+  const paginatedExistingDiplomaPaths = useMemo(() => {
+    const startIndex = (existingDiplomaPage - 1) * ITEMS_PER_PAGE;
+    return visibleExistingDiplomaPaths.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [existingDiplomaPage, visibleExistingDiplomaPaths]);
+
+  const paginatedPendingDiplomaFiles = useMemo(() => {
+    const startIndex = (pendingDiplomaPage - 1) * ITEMS_PER_PAGE;
+    return professionalDiplomaFiles.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [pendingDiplomaPage, professionalDiplomaFiles]);
 
   useEffect(() => {
     void loadStudyPlans();
@@ -87,6 +108,8 @@ export function StudyPlans() {
       setSubmitError('');
       const data = await listStudyPlans();
       setRecord(data[0] ?? null);
+      setExistingDiplomaPage(1);
+      setPendingDiplomaPage(1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to load study plans.');
     } finally {
@@ -99,6 +122,8 @@ export function StudyPlans() {
     setRemoveSingleFiles(createEmptyRemoveFlags());
     setProfessionalDiplomaFiles([]);
     setRemoveProfessionalDiplomaPaths([]);
+    setExistingDiplomaPage(1);
+    setPendingDiplomaPage(1);
     setSubmitError('');
   }
 
@@ -319,19 +344,22 @@ export function StudyPlans() {
                     onChange={(event) => {
                       const files = Array.from(event.target.files ?? []);
                       setProfessionalDiplomaFiles((prev) => [...prev, ...files]);
+                      setPendingDiplomaPage(1);
                     }}
                   />
                 </label>
 
                 {professionalDiplomaFiles.length > 0 ? (
                   <div className="mt-3 space-y-2">
-                    {professionalDiplomaFiles.map((file, index) => (
-                      <div key={`${file.name}-${index}`} className="text-sm text-must-text-primary flex items-center justify-between gap-2">
-                        <span className="truncate">New file {index + 1}</span>
+                    {paginatedPendingDiplomaFiles.map((file, index) => {
+                      const absoluteIndex = (pendingDiplomaPage - 1) * ITEMS_PER_PAGE + index;
+                      return (
+                      <div key={`${file.name}-${absoluteIndex}`} className="text-sm text-must-text-primary flex items-center justify-between gap-2 rounded-lg border border-must-border bg-must-surface px-3 py-2">
+                        <span className="truncate">New file {absoluteIndex + 1}</span>
                         <button
                           type="button"
                           onClick={() => {
-                            setProfessionalDiplomaFiles((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+                            setProfessionalDiplomaFiles((prev) => prev.filter((_, itemIndex) => itemIndex !== absoluteIndex));
                           }}
                           className="text-red-600 hover:text-red-700 text-xs inline-flex items-center gap-1"
                         >
@@ -339,21 +367,24 @@ export function StudyPlans() {
                           Remove
                         </button>
                       </div>
-                    ))}
+                    );})}
+                    <Pagination
+                      currentPage={pendingDiplomaPage}
+                      totalPages={pendingDiplomaTotalPages}
+                      totalItems={professionalDiplomaFiles.length}
+                      itemLabel="pending files"
+                      onPageChange={setPendingDiplomaPage}
+                    />
                   </div>
                 ) : null}
 
-                {(record?.professional_diplomas ?? []).length > 0 ? (
+                {visibleExistingDiplomaPaths.length > 0 ? (
                   <div className="mt-3 space-y-2">
-                    {(record?.professional_diplomas ?? []).map((path, index) => {
-                      const marked = removeProfessionalDiplomaPaths.includes(path);
-                      if (marked) {
-                        return null;
-                      }
-
+                    {paginatedExistingDiplomaPaths.map((path, index) => {
+                      const absoluteIndex = (existingDiplomaPage - 1) * ITEMS_PER_PAGE + index;
                       return (
-                        <div key={path} className="text-sm text-must-text-secondary flex items-center justify-between gap-2">
-                          <span className="truncate">Diploma file {index + 1}</span>
+                        <div key={path} className="text-sm text-must-text-secondary flex items-center justify-between gap-2 rounded-lg border border-must-border bg-must-surface px-3 py-2">
+                          <span className="truncate">Diploma file {absoluteIndex + 1}</span>
                           <div className="flex items-center gap-2">
                             <Button
                               type="button"
@@ -378,6 +409,13 @@ export function StudyPlans() {
                         </div>
                       );
                     })}
+                    <Pagination
+                      currentPage={existingDiplomaPage}
+                      totalPages={existingDiplomaTotalPages}
+                      totalItems={visibleExistingDiplomaPaths.length}
+                      itemLabel="diploma files"
+                      onPageChange={setExistingDiplomaPage}
+                    />
                   </div>
                 ) : null}
                 </div>

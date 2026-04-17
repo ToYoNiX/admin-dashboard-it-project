@@ -7,8 +7,15 @@ export interface StudentRecord {
   student_id: string;
   full_name: string;
   nationality: string;
+  college: string | null;
   major: StudentMajor;
+  team_code: string | null;
+  amit: string | null;
   level: string;
+  class_name: string | null;
+  mobile: string | null;
+  email: string | null;
+  advisor_name: string | null;
   gpa: number | null;
   created_at: string;
   updated_at: string;
@@ -18,8 +25,15 @@ export interface StudentInput {
   studentId: string;
   fullName: string;
   nationality: string;
+  college?: string;
   major: StudentMajor;
+  teamCode?: string;
+  amit?: string;
   level: string;
+  className?: string;
+  mobile?: string;
+  email?: string;
+  advisorName?: string;
   gpa: number | null;
 }
 
@@ -41,6 +55,9 @@ function validateStudentInput(input: StudentInput): void {
   }
   if (input.gpa != null && (input.gpa < 0 || input.gpa > 4)) {
     throw new Error('GPA must be between 0 and 4.');
+  }
+  if (input.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
+    throw new Error('Email must be a valid email address.');
   }
 }
 
@@ -80,8 +97,15 @@ export async function createStudent(input: StudentInput): Promise<void> {
     student_id: input.studentId.trim(),
     full_name: input.fullName.trim(),
     nationality: input.nationality.trim(),
+    college: input.college?.trim() || null,
     major: input.major,
+    team_code: input.teamCode?.trim() || null,
+    amit: input.amit?.trim() || null,
     level: input.level.trim(),
+    class_name: input.className?.trim() || null,
+    mobile: input.mobile?.trim() || null,
+    email: input.email?.trim() || null,
+    advisor_name: input.advisorName?.trim() || null,
     gpa: input.gpa,
     created_at: now,
     updated_at: now
@@ -92,5 +116,46 @@ export async function createStudent(input: StudentInput): Promise<void> {
       throw new Error('Students backend is not initialized yet. Run the SQL setup script first.');
     }
     throw new Error(`Failed to add student: ${error.message}`);
+  }
+}
+
+export async function bulkUpsertStudents(inputs: StudentInput[]): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  if (inputs.length === 0) {
+    throw new Error('No students found to import.');
+  }
+
+  inputs.forEach(validateStudentInput);
+
+  const now = new Date().toISOString();
+  const payload = inputs.map((input) => ({
+    student_id: input.studentId.trim(),
+    full_name: input.fullName.trim(),
+    nationality: input.nationality.trim(),
+    college: input.college?.trim() || null,
+    major: input.major,
+    team_code: input.teamCode?.trim() || null,
+    amit: input.amit?.trim() || null,
+    level: input.level.trim(),
+    class_name: input.className?.trim() || null,
+    mobile: input.mobile?.trim() || null,
+    email: input.email?.trim() || null,
+    advisor_name: input.advisorName?.trim() || null,
+    gpa: input.gpa,
+    updated_at: now
+  }));
+
+  const { error } = await supabase
+    .from(supabaseStudentsTable)
+    .upsert(payload, { onConflict: 'student_id' });
+
+  if (error) {
+    if (isMissingStudentsTable(error)) {
+      throw new Error('Students backend is not initialized yet. Run the SQL setup script first.');
+    }
+    throw new Error(`Failed to import students: ${error.message}`);
   }
 }

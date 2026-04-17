@@ -26,6 +26,7 @@ create table if not exists public.events (
   day text not null,
   month text not null,
   time_range text not null,
+  location_name text,
   href text,
   image_url text,
   is_published boolean not null default false,
@@ -37,9 +38,20 @@ create table if not exists public.events (
   constraint events_day_not_blank check (length(trim(day)) > 0),
   constraint events_month_not_blank check (length(trim(month)) > 0),
   constraint events_time_range_not_blank check (length(trim(time_range)) > 0),
+  constraint events_location_name_not_blank check (location_name is null or length(trim(location_name)) > 0),
   constraint events_href_format check (href is null or href ~* '^https?://')
 );
 
+alter table public.events
+  add column if not exists location_name text;
+
+alter table public.events
+  drop constraint if exists events_location_name_not_blank;
+
+alter table public.events
+  add constraint events_location_name_not_blank
+  check (location_name is null or length(trim(location_name)) > 0);
+ 
 create table if not exists public.study_plans (
   id uuid primary key default gen_random_uuid(),
   undergrad_cs_old_curriculum text,
@@ -159,8 +171,15 @@ create table if not exists public.students (
   student_id text primary key,
   full_name text not null,
   nationality text not null,
+  college text,
   major text not null,
+  team_code text,
+  amit text,
   level text not null,
+  class_name text,
+  mobile text,
+  email text,
+  advisor_name text,
   gpa numeric(3,2),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -171,6 +190,14 @@ create table if not exists public.students (
   constraint students_level_not_blank check (length(trim(level)) > 0),
   constraint students_gpa_valid check (gpa is null or (gpa >= 0 and gpa <= 4))
 );
+
+alter table public.students add column if not exists college text;
+alter table public.students add column if not exists team_code text;
+alter table public.students add column if not exists amit text;
+alter table public.students add column if not exists class_name text;
+alter table public.students add column if not exists mobile text;
+alter table public.students add column if not exists email text;
+alter table public.students add column if not exists advisor_name text;
 
 create table if not exists public.student_honor_list_documents (
   key text primary key default 'current',

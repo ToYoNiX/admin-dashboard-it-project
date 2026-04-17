@@ -17,6 +17,7 @@ export interface EventRecord {
   day: string;
   month: string;
   time_range: string;
+  location_name: string | null;
   href: string | null;
   image_url: string | null;
   is_published: boolean;
@@ -31,6 +32,7 @@ export interface EventInput {
   day: string;
   month: string;
   timeRange: string;
+  locationName: string;
   href: string;
 }
 
@@ -51,6 +53,12 @@ function assertEventInput(input: EventInput): void {
   }
   if (!input.timeRange.trim()) {
     throw new Error('Time range is required.');
+  }
+  if (input.href.trim() && !input.locationName.trim()) {
+    throw new Error('Location name is required when a map link is provided.');
+  }
+  if (input.locationName.trim() && !input.href.trim()) {
+    throw new Error('Map link is required when a location name is provided.');
   }
   if (input.href && !/^https?:\/\//i.test(input.href)) {
     throw new Error('Link must be a valid URL starting with http:// or https://');
@@ -104,6 +112,7 @@ export async function createEvent(input: EventInput, imageFile?: File | null): P
     day: input.day.trim(),
     month: input.month.trim(),
     time_range: input.timeRange.trim(),
+    location_name: input.locationName.trim() || null,
     href: input.href.trim() || null,
     image_url: imagePath,
     is_published: false,
@@ -160,6 +169,7 @@ export async function updateEvent(
       day: input.day.trim(),
       month: input.month.trim(),
       time_range: input.timeRange.trim(),
+      location_name: input.locationName.trim() || null,
       href: input.href.trim() || null,
       image_url: nextImagePath,
       updated_at: new Date().toISOString()

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   BriefcaseIcon,
   Edit2Icon,
@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { Pagination } from '../components/ui/Pagination';
 import {
   createStaffProfile,
   deleteStaffProfile,
@@ -49,6 +50,7 @@ const initialFormData: StaffFormData = {
 };
 
 export function Staff() {
+  const ITEMS_PER_PAGE = 6;
   const [formData, setFormData] = useState<StaffFormData>(initialFormData);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [staffImage, setStaffImage] = useState<File | null>(null);
@@ -59,6 +61,7 @@ export function Staff() {
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
   const [editingRecord, setEditingRecord] = useState<StaffRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StaffRecord | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   React.useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -73,6 +76,7 @@ export function Staff() {
       setIsLoadingRecords(true);
       const data = await listStaffProfiles();
       setStaffRecords(data);
+      setCurrentPage(1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to load staff entries.');
     } finally {
@@ -189,6 +193,13 @@ export function Staff() {
       setSubmitError(error instanceof Error ? error.message : 'Failed to delete staff profile.');
     }
   };
+
+  const paginatedStaffRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return staffRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, staffRecords]);
+
+  const totalPages = Math.max(1, Math.ceil(staffRecords.length / ITEMS_PER_PAGE));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto pb-12">
@@ -386,7 +397,7 @@ export function Staff() {
           ) : null}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {staffRecords.map((record) => {
+            {paginatedStaffRecords.map((record) => {
               const imageUrl = getPublicFileUrl(supabaseImageBucket, record.image_path);
               const fullName = `${record.title} ${record.first_name} ${record.last_name}`;
 
@@ -414,13 +425,14 @@ export function Staff() {
                         <p className="text-xs text-must-text-secondary mt-1 truncate">{record.speciality}</p>
                       </div>
 
-                      <div className="ml-auto mt-2 flex flex-col gap-2">
+                      <div className="ml-auto flex shrink-0 flex-col gap-2 rounded-xl border border-must-border bg-slate-50/80 p-2 dark:bg-slate-800/40">
                           <Button
                             type="button"
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
                             icon={<Edit2Icon className="w-4 h-4" />}
                             onClick={() => startEdit(record)}
+                            className="justify-start min-w-[108px]"
                           >
                             Edit
                           </Button>
@@ -431,6 +443,7 @@ export function Staff() {
                             size="sm"
                             icon={<Trash2Icon className="w-4 h-4" />}
                             onClick={() => setDeleteTarget(record)}
+                            className="justify-start min-w-[108px]"
                           >
                             Delete
                           </Button>
@@ -440,6 +453,16 @@ export function Staff() {
                 </Card>
               );
             })}
+          </div>
+
+          <div className="mt-4">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={staffRecords.length}
+              itemLabel="staff members"
+              onPageChange={setCurrentPage}
+            />
           </div>
         </CardContent>
       </Card>

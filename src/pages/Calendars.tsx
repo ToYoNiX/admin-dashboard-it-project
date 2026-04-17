@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { Pagination } from '../components/ui/Pagination';
 import {
   createCalendar,
   deleteCalendar,
@@ -31,6 +32,7 @@ const initialForm: CalendarInput = {
 };
 
 export function Calendars() {
+  const ITEMS_PER_PAGE = 6;
   const [records, setRecords] = useState<CalendarRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,6 +41,7 @@ export function Calendars() {
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [editingRecord, setEditingRecord] = useState<CalendarRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CalendarRecord | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     void loadCalendars();
@@ -48,6 +51,11 @@ export function Calendars() {
     return Array.from({ length: 2 }, (_, index) => currentYear + index);
   }, []);
 
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return records.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, records]);
+
   const groupedByProgramLevel = useMemo(() => {
     const grouped: Record<string, CalendarRecord[]> = {
       Undergraduate: [],
@@ -55,7 +63,7 @@ export function Calendars() {
       'Professional Diplomas': []
     };
 
-    for (const record of records) {
+    for (const record of paginatedRecords) {
       if (!grouped[record.program_level]) {
         grouped[record.program_level] = [];
       }
@@ -63,7 +71,9 @@ export function Calendars() {
     }
 
     return grouped;
-  }, [records]);
+  }, [paginatedRecords]);
+
+  const totalPages = Math.max(1, Math.ceil(records.length / ITEMS_PER_PAGE));
 
   async function loadCalendars(): Promise<void> {
     try {
@@ -71,6 +81,7 @@ export function Calendars() {
       setSubmitError('');
       const data = await listCalendarsForYear(currentYear);
       setRecords(data);
+      setCurrentPage(1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to load calendars.');
     } finally {
@@ -301,13 +312,14 @@ export function Calendars() {
                               )}
                             </div>
 
-                            <div className="flex gap-2 shrink-0">
+                            <div className="flex shrink-0 flex-col gap-2 rounded-xl border border-must-border bg-slate-50/70 p-2 dark:bg-slate-800/30 sm:flex-row">
                               <Button
                                 type="button"
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
                                 icon={<Edit2Icon className="w-4 h-4" />}
                                 onClick={() => startEdit(record)}
+                                className="justify-start"
                               >
                                 Edit
                               </Button>
@@ -317,6 +329,7 @@ export function Calendars() {
                                 size="sm"
                                 icon={<Trash2Icon className="w-4 h-4" />}
                                 onClick={() => setDeleteTarget(record)}
+                                className="justify-start"
                               >
                                 Delete
                               </Button>
@@ -331,6 +344,14 @@ export function Calendars() {
                 </CardContent>
               </Card>
             ))}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={records.length}
+            itemLabel="calendars"
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 

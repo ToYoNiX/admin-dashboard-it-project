@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { Pagination } from '../components/ui/Pagination';
 import {
   createSchedule,
   deleteSchedule,
@@ -33,6 +34,7 @@ const initialForm: ScheduleInput = {
 };
 
 export function Schedules() {
+  const ITEMS_PER_PAGE = 6;
   const [records, setRecords] = useState<ScheduleRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -41,6 +43,7 @@ export function Schedules() {
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [editingRecord, setEditingRecord] = useState<ScheduleRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ScheduleRecord | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     void loadSchedules();
@@ -50,6 +53,11 @@ export function Schedules() {
     return Array.from({ length: 2 }, (_, index) => currentYear + index);
   }, []);
 
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return records.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, records]);
+
   const groupedBySemester = useMemo(() => {
     const grouped: Record<string, ScheduleRecord[]> = {
       Fall: [],
@@ -57,7 +65,7 @@ export function Schedules() {
       Summer: []
     };
 
-    for (const record of records) {
+    for (const record of paginatedRecords) {
       if (!grouped[record.semester]) {
         grouped[record.semester] = [];
       }
@@ -65,7 +73,9 @@ export function Schedules() {
     }
 
     return grouped;
-  }, [records]);
+  }, [paginatedRecords]);
+
+  const totalPages = Math.max(1, Math.ceil(records.length / ITEMS_PER_PAGE));
 
   async function loadSchedules(): Promise<void> {
     try {
@@ -73,6 +83,7 @@ export function Schedules() {
       setSubmitError('');
       const data = await listSchedulesForYear(currentYear);
       setRecords(data);
+      setCurrentPage(1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to load schedules.');
     } finally {
@@ -321,13 +332,14 @@ export function Schedules() {
                               )}
                             </div>
 
-                            <div className="flex gap-2 shrink-0">
+                            <div className="flex shrink-0 flex-col gap-2 rounded-xl border border-must-border bg-slate-50/70 p-2 dark:bg-slate-800/30 sm:flex-row">
                               <Button
                                 type="button"
-                                variant="secondary"
+                                variant="outline"
                                 size="sm"
                                 icon={<Edit2Icon className="w-4 h-4" />}
                                 onClick={() => startEdit(record)}
+                                className="justify-start"
                               >
                                 Edit
                               </Button>
@@ -337,6 +349,7 @@ export function Schedules() {
                                 size="sm"
                                 icon={<Trash2Icon className="w-4 h-4" />}
                                 onClick={() => setDeleteTarget(record)}
+                                className="justify-start"
                               >
                                 Delete
                               </Button>
@@ -351,6 +364,14 @@ export function Schedules() {
                 </CardContent>
               </Card>
             ))}
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={records.length}
+            itemLabel="schedules"
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 

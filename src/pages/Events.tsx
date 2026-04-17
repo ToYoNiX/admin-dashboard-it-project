@@ -6,6 +6,7 @@ import {
   EyeIcon,
   ExternalLinkIcon,
   ImageIcon,
+  MapPinIcon,
   Maximize2Icon,
   PlusIcon,
   Trash2Icon,
@@ -33,6 +34,7 @@ interface EventFormErrors {
   day?: string;
   month?: string;
   timeRange?: string;
+  locationName?: string;
   href?: string;
 }
 
@@ -42,6 +44,7 @@ const initialForm: EventInput = {
   day: '',
   month: '',
   timeRange: '',
+  locationName: '',
   href: ''
 };
 
@@ -115,6 +118,12 @@ export function Events() {
     if (!form.timeRange.trim()) {
       errors.timeRange = 'Time range is required.';
     }
+    if (form.href.trim() && !form.locationName.trim()) {
+      errors.locationName = 'Location name is required when you add a map link.';
+    }
+    if (form.locationName.trim() && !form.href.trim()) {
+      errors.href = 'Map link is required when you add a location name.';
+    }
     if (form.href && !/^https?:\/\//i.test(form.href)) {
       errors.href = 'Please enter a valid URL starting with http:// or https://';
     }
@@ -140,6 +149,7 @@ export function Events() {
       day: record.day,
       month: record.month,
       timeRange: record.time_range,
+      locationName: record.location_name ?? '',
       href: record.href ?? ''
     });
     setFormErrors({});
@@ -262,12 +272,20 @@ export function Events() {
               />
 
               <Input
-                label="Link (Optional)"
+                label="Location Name (Optional)"
+                value={form.locationName}
+                onChange={(event) => setForm((prev) => ({ ...prev, locationName: event.target.value }))}
+                error={formErrors.locationName}
+                placeholder="Faculty of Computer Science, Cairo"
+              />
+
+              <Input
+                label="Google Maps Link (Optional)"
                 type="url"
                 value={form.href}
                 onChange={(event) => setForm((prev) => ({ ...prev, href: event.target.value }))}
                 error={formErrors.href}
-                placeholder="https://example.com"
+                placeholder="https://maps.google.com/..."
               />
 
               <div>
@@ -402,6 +420,13 @@ export function Events() {
                           </span>
                         </div>
 
+                        {record.location_name ? (
+                          <div className="mt-3 inline-flex items-center gap-1 text-sm text-must-text-primary">
+                            <MapPinIcon className="w-4 h-4 text-must-green" />
+                            <span>{record.location_name}</span>
+                          </div>
+                        ) : null}
+
                         {record.href ? (
                           <a
                             href={record.href}
@@ -410,7 +435,7 @@ export function Events() {
                             className="mt-3 inline-flex items-center gap-1 text-sm text-must-green hover:underline"
                           >
                             <ExternalLinkIcon className="w-4 h-4" />
-                            Open link
+                            {record.location_name ? `Open ${record.location_name} in Google Maps` : 'Open link'}
                           </a>
                         ) : null}
                       </div>

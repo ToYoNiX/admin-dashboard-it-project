@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BarChart3Icon,
   ArrowUpDownIcon,
   DownloadIcon,
   FileTextIcon,
@@ -9,6 +10,7 @@ import {
   SearchIcon,
   UploadIcon } from
 'lucide-react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -20,6 +22,7 @@ import {
 } from '../services/honorListService';
 import { getPublicFileUrl } from '../services/storageUtils';
 import {
+  bulkUpsertStudents,
   createStudent,
   listStudents,
   studentMajors,
@@ -40,8 +43,136 @@ const DEFAULT_FORM_VALUES: StudentInput = {
   nationality: '',
   major: 'cs',
   level: 'Level 1',
+  college: '',
+  teamCode: '',
+  amit: '',
+  className: '',
+  mobile: '',
+  email: '',
+  advisorName: '',
   gpa: null
 };
+
+const gpaRanges = [
+  { key: '0-1.99', label: '0.00 - 1.99', min: 0, max: 1.99 },
+  { key: '2-2.49', label: '2.00 - 2.49', min: 2, max: 2.49 },
+  { key: '2.5-2.99', label: '2.50 - 2.99', min: 2.5, max: 2.99 },
+  { key: '3-3.49', label: '3.00 - 3.49', min: 3, max: 3.49 },
+  { key: '3.5-4', label: '3.50 - 4.00', min: 3.5, max: 4 }
+];
+
+function normalizeMajor(value: string): StudentInput['major'] {
+  const normalized = value.trim().toLowerCase();
+
+  if (['cs', 'computer science', 'computer sciences'].includes(normalized)) {
+    return 'cs';
+  }
+  if (['is', 'information systems', 'information system'].includes(normalized)) {
+    return 'is';
+  }
+  if (['ai', 'artificial intelligence'].includes(normalized)) {
+    return 'ai';
+  }
+
+  return 'general';
+}
+
+function normalizeHeader(value: unknown): string {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function extractCell(row: Record<string, unknown>, keys: string[]): string {
+  for (const [key, value] of Object.entries(row)) {
+    if (keys.includes(normalizeHeader(key))) {
+      return String(value ?? '').replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  return '';
+}
+
+function getSvgDataUrl(svg: SVGSVGElement): string {
+  const clonedSvg = svg.cloneNode(true) as SVGSVGElement;
+  const width = svg.clientWidth || Number(svg.getAttribute('width')) || 900;
+  const height = svg.clientHeight || Number(svg.getAttribute('height')) || 320;
+
+  clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  clonedSvg.setAttribute('width', String(width));
+  clonedSvg.setAttribute('height', String(height));
+
+  if (!clonedSvg.getAttribute('viewBox')) {
+    clonedSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  }
+
+  const serializer = new XMLSerializer();
+  const source = serializer.serializeToString(clonedSvg);
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(source)}`;
+}
+
+async function parseStudentSheet(file: File): Promise<StudentInput[]> {
+  const XLSX = await import('xlsx');
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new Error('The Excel file does not contain any sheets.');
+  }
+
+  const sheet = workbook.Sheets[firstSheetName];
+  const rawRows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+    header: 1,
+    defval: ''
+  });
+
+  if (rawRows.length === 0) {
+    throw new Error('The Excel sheet is empty.');
+  }
+
+  const headerRowIndex = rawRows.findIndex((row) => {
+    const normalizedCells = row.map((cell) => normalizeHeader(cell));
+    return normalizedCells.includes('id') && normalizedCells.includes('name');
+  });
+
+  if (headerRowIndex === -1) {
+    throw new Error('Could not find a header row with ID and NAME in the Excel sheet.');
+  }
+
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    defval: '',
+    range: headerRowIndex
+  });
+
+  return rows
+    .map((row) => {
+      const gpaValue = extractCell(row, ['gpa', 'current gpa']);
+      const parsedGpa = gpaValue === '' ? null : Number(gpaValue);
+      const rawEmail = extractCell(row, ['email', 'e mail', 'student email']);
+      const normalizedEmail = rawEmail === '0' ? '' : rawEmail.replace(/\s+/g, '');
+
+      return {
+        studentId: extractCell(row, ['id', 'student id', 'studentid']),
+        fullName: extractCell(row, ['name', 'full name', 'student name']),
+        college: extractCell(row, ['college', 'collegue', 'faculty']),
+        major: normalizeMajor(extractCell(row, ['major', 'program', 'department'])),
+        teamCode: extractCell(row, ['team code', 'teamcode', 'team']),
+        amit: extractCell(row, ['amit', 'admit', 'admit code', 'term code admit', 'term code_admit']),
+        gpa: parsedGpa != null && Number.isFinite(parsedGpa) ? parsedGpa : null,
+        level: extractCell(row, ['class', 'level', 'year']) || 'Level 1',
+        className: extractCell(row, ['class', 'class name']),
+        mobile: extractCell(row, ['mobile', 'phone', 'phone number']),
+        email: normalizedEmail,
+        advisorName: extractCell(row, ['advisor name', 'advisor', 'advisorname']),
+        nationality: extractCell(row, ['nationality', 'country'])
+      } satisfies StudentInput;
+    })
+    .filter((row) => row.studentId || row.fullName);
+}
 
 export function Students({ onNavigateToMessages }: StudentsProps) {
   const [students, setStudents] = useState<StudentRecord[]>([]);
@@ -62,6 +193,9 @@ export function Students({ onNavigateToMessages }: StudentsProps) {
   const [isHonorListSaving, setIsHonorListSaving] = useState(false);
   const [honorListError, setHonorListError] = useState<string | null>(null);
   const [honorListSuccess, setHonorListSuccess] = useState<string | null>(null);
+  const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const chartRef = useRef<HTMLDivElement | null>(null);
 
   const levelOptions = useMemo(() => {
     const levels = new Set<string>();
@@ -86,11 +220,13 @@ const trimUntilCapital = (str : String) => {
 
     const filtered = students.filter((student) => {
       const studentEmail = `${student.student_id}@must.edu.eg`;
+      const actualEmail = student.email?.toLowerCase() ?? '';
       const matchesSearch =
         normalizedSearch.length === 0 ||
         student.student_id.toLowerCase().includes(normalizedSearch) ||
         student.full_name.toLowerCase().includes(normalizedSearch) ||
-        studentEmail.toLowerCase().includes(normalizedSearch);
+        studentEmail.toLowerCase().includes(normalizedSearch) ||
+        actualEmail.includes(normalizedSearch);
 
       const matchesMajor = selectedMajor === 'all' || student.major === selectedMajor;
       const matchesLevel = selectedLevel === 'all' || student.level === selectedLevel;
@@ -120,6 +256,13 @@ const trimUntilCapital = (str : String) => {
 
     return filtered;
   }, [searchTerm, selectedMajor, selectedLevel, sortBy, sortDirection, students]);
+
+  const gpaRangeData = useMemo(() => {
+    return gpaRanges.map((range) => ({
+      range: range.label,
+      students: filteredStudents.filter((student) => student.gpa != null && student.gpa >= range.min && student.gpa <= range.max).length
+    }));
+  }, [filteredStudents]);
 
   useEffect(() => {
     loadStudents();
@@ -219,6 +362,119 @@ const trimUntilCapital = (str : String) => {
     }
   };
 
+  const handleImportStudents = async () => {
+    if (!selectedImportFile) {
+      setFeedbackError('Please choose an Excel file first.');
+      return;
+    }
+
+    setIsImporting(true);
+    setFeedbackError(null);
+    setFeedbackSuccess(null);
+
+    try {
+      const importedStudents = await parseStudentSheet(selectedImportFile);
+      await bulkUpsertStudents(importedStudents);
+      setSelectedImportFile(null);
+      setFeedbackSuccess(`Imported ${importedStudents.length} students successfully.`);
+      await loadStudents();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to import students.';
+      setFeedbackError(message);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleDownloadGpaChart = () => {
+    const svg = chartRef.current?.querySelector('svg');
+
+    if (!svg) {
+      setFeedbackError('Chart is not ready to download yet.');
+      return;
+    }
+
+    const image = new Image();
+    const url = getSvgDataUrl(svg);
+
+    image.onload = () => {
+      const chartWidth = svg.clientWidth || 900;
+      const chartHeight = svg.clientHeight || 320;
+      const padding = 32;
+      const headerHeight = 72;
+      const canvas = document.createElement('canvas');
+      const scale = 2;
+
+      canvas.width = (chartWidth + padding * 2) * scale;
+      canvas.height = (chartHeight + padding * 2 + headerHeight) * scale;
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        setFeedbackError('Failed to prepare chart download.');
+        return;
+      }
+
+      context.scale(scale, scale);
+
+      const cardWidth = chartWidth + padding * 2;
+      const cardHeight = chartHeight + padding * 2 + headerHeight;
+      const radius = 24;
+
+      context.fillStyle = '#eef6f0';
+      context.fillRect(0, 0, cardWidth, cardHeight);
+
+      context.fillStyle = '#ffffff';
+      context.beginPath();
+      context.moveTo(radius, 0);
+      context.lineTo(cardWidth - radius, 0);
+      context.quadraticCurveTo(cardWidth, 0, cardWidth, radius);
+      context.lineTo(cardWidth, cardHeight - radius);
+      context.quadraticCurveTo(cardWidth, cardHeight, cardWidth - radius, cardHeight);
+      context.lineTo(radius, cardHeight);
+      context.quadraticCurveTo(0, cardHeight, 0, cardHeight - radius);
+      context.lineTo(0, radius);
+      context.quadraticCurveTo(0, 0, radius, 0);
+      context.closePath();
+      context.fill();
+
+      context.strokeStyle = '#d7e7db';
+      context.lineWidth = 1;
+      context.stroke();
+
+      context.fillStyle = '#16301e';
+      context.font = '700 24px Arial';
+      context.fillText('Students by GPA Range', padding, 38);
+
+      context.fillStyle = '#5f7164';
+      context.font = '400 14px Arial';
+      context.fillText(`Filtered students: ${filteredStudents.length}`, padding, 62);
+
+      context.drawImage(image, padding, headerHeight, chartWidth, chartHeight);
+
+      canvas.toBlob((pngBlob) => {
+        if (!pngBlob) {
+          setFeedbackError('Failed to generate chart image.');
+          return;
+        }
+
+        const pngUrl = URL.createObjectURL(pngBlob);
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        link.download = 'students-gpa-range-chart.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(pngUrl);
+      }, 'image/png');
+    };
+
+    image.onerror = () => {
+      setFeedbackError('Failed to generate chart image.');
+    };
+
+    image.src = url;
+  };
+
   const formatGpa = (gpa: number | null): string => {
     if (gpa == null || Number.isNaN(gpa)) {
       return '-';
@@ -247,12 +503,35 @@ const trimUntilCapital = (str : String) => {
         <h1 className="text-2xl font-bold text-must-text-primary">
           Students Management
         </h1>
-        <Button
-          icon={<PlusIcon className="w-4 h-4" />}
-          onClick={() => setShowAddForm((previous) => !previous)}>
+        <div className="flex flex-wrap gap-3">
+          <label className="inline-flex items-center gap-2 rounded-lg border border-dashed border-must-border px-4 py-2 text-sm text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer bg-must-surface">
+            <UploadIcon className="w-4 h-4" />
+            <span>{selectedImportFile ? selectedImportFile.name : 'Choose Excel File'}</span>
+            <input
+              type="file"
+              className="hidden"
+              accept=".xlsx,.xls,.csv"
+              onChange={(event) => {
+                setSelectedImportFile(event.target.files?.[0] ?? null);
+              }} />
+          </label>
+          <Button
+            variant="outline"
+            icon={<UploadIcon className="w-4 h-4" />}
+            onClick={() => {
+              void handleImportStudents();
+            }}
+            disabled={isImporting || !selectedImportFile}>
 
-          {showAddForm ? 'Close Form' : 'Add Student'}
-        </Button>
+            {isImporting ? 'Importing...' : 'Import Excel'}
+          </Button>
+          <Button
+            icon={<PlusIcon className="w-4 h-4" />}
+            onClick={() => setShowAddForm((previous) => !previous)}>
+
+            {showAddForm ? 'Close Form' : 'Add Student'}
+          </Button>
+        </div>
       </div>
 
       {showAddForm &&
@@ -412,6 +691,9 @@ const trimUntilCapital = (str : String) => {
       </Card>
 
       <Card className="p-4">
+        <div className="mb-4 rounded-lg border border-dashed border-must-border bg-slate-50 dark:bg-slate-800/40 p-4 text-sm text-must-text-secondary">
+          Excel columns supported: `id`, `name`, `college`, `major`, `team code`, `amit`, `gpa`, `class`, `mobile`, `email`, `advisor name`, `nationality`.
+        </div>
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <Input
@@ -470,6 +752,44 @@ const trimUntilCapital = (str : String) => {
         </div>
       </Card>
 
+      <Card className="p-4 group">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart3Icon className="w-5 h-5 text-must-green" />
+            <h2 className="text-lg font-semibold text-must-text-primary">Students by GPA Range</h2>
+          </div>
+          <button
+            type="button"
+            onClick={handleDownloadGpaChart}
+            className="inline-flex items-center gap-2 rounded-lg border border-must-border px-3 py-2 text-sm text-must-text-secondary hover:text-must-text-primary hover:bg-slate-50 dark:hover:bg-slate-800 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+
+            <DownloadIcon className="w-4 h-4" />
+            Download
+          </button>
+        </div>
+        <div ref={chartRef} className="h-[320px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={gpaRangeData} margin={{ top: 12, right: 12, left: 0, bottom: 12 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--must-border)" vertical={false} />
+              <XAxis
+                dataKey="range"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: 'var(--must-text-secondary)' }} />
+              <YAxis
+                allowDecimals={false}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: 'var(--must-text-secondary)' }} />
+              <Tooltip
+                cursor={{ fill: 'rgba(27, 138, 61, 0.08)' }}
+                contentStyle={{ borderRadius: '8px', border: '1px solid var(--must-border)' }} />
+              <Bar dataKey="students" fill="var(--must-green)" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -483,6 +803,9 @@ const trimUntilCapital = (str : String) => {
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
                   Nationality
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Advisor
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
                   Major
@@ -517,6 +840,9 @@ const trimUntilCapital = (str : String) => {
                     {student.nationality}
                   </td>
                   <td className="px-6 py-4 text-sm text-must-text-secondary">
+                    {student.advisor_name || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-must-text-secondary">
                     {student.major.toUpperCase()}
                   </td>
                   <td className="px-6 py-4 text-sm text-must-text-secondary">
@@ -536,7 +862,7 @@ const trimUntilCapital = (str : String) => {
                     <a
                       className="inline-flex p-1.5 text-slate-400 hover:text-must-navy transition-colors rounded-md hover:bg-slate-100 dark:hover:bg-slate-700"
                       title="Send Email"
-                      href={`mailto:${student.student_id}@must.edu.eg`}>
+                      href={`mailto:${student.email || `${student.student_id}@must.edu.eg`}`}>
 
                       <MailIcon className="w-4 h-4" />
                     </a>
@@ -546,7 +872,7 @@ const trimUntilCapital = (str : String) => {
               {!isLoading && filteredStudents.length === 0 &&
               <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-8 text-center text-sm text-must-text-secondary">
 
                     No students found.
@@ -556,7 +882,7 @@ const trimUntilCapital = (str : String) => {
               {isLoading &&
               <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-8 text-center text-sm text-must-text-secondary">
 
                     Loading students...

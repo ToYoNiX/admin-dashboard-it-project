@@ -11,6 +11,8 @@ import {
   GraduationCapIcon,
   SchoolIcon,
   ShieldCheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   PartyPopperIcon } from
@@ -29,6 +31,40 @@ export function Sidebar({
   onToggleCollapse,
   isSuperAdmin
 }: SidebarProps) {
+  const academicItems = [
+  {
+    id: 'Staff',
+    icon: BriefcaseIcon,
+    label: 'Academic Staff'
+  },
+  {
+    id: 'Advisor Resources',
+    icon: GraduationCapIcon,
+    label: 'Advisor Resources'
+  },
+  {
+    id: 'Student Resources',
+    icon: SchoolIcon,
+    label: 'Student Resources'
+  },
+  {
+    id: 'Study Plans',
+    icon: BookCopyIcon,
+    label: 'Study Plans'
+  },
+  {
+    id: 'Schedules',
+    icon: CalendarIcon,
+    label: 'Schedules'
+  },
+  {
+    id: 'Calendars',
+    icon: CalendarRangeIcon,
+    label: 'Calendars'
+  }];
+
+  const isAcademicsActive = academicItems.some((item) => item.id === activePage);
+
   const menuItems = [
   {
     id: 'Dashboard',
@@ -60,45 +96,6 @@ export function Sidebar({
       icon: ImagesIcon,
       label: 'Photo Gallery'
     },
-      {
-    id: 'Staff',
-    icon: BriefcaseIcon,
-    label: 'Academic Staff'
-  },
-   {
-      id: 'Advisor Resources',
-      icon: GraduationCapIcon,
-      label: 'Advisor Resources'
-    },
-    {
-      id: 'Student Resources',
-      icon: SchoolIcon,
-      label: 'Student Resources'
-    },
-
-
-  
-  {
-    id: 'Study Plans',
-    icon: BookCopyIcon,
-    label: 'Study Plans'
-  },
-  {
-    id: 'Schedules',
-    icon: CalendarIcon,
-    label: 'Schedules'
-  },
-  {
-    id: 'Calendars',
-    icon: CalendarRangeIcon,
-    label: 'Calendars'
-  },
-  {
-    id: 'Messages',
-    icon: MessageSquareIcon,
-    label: 'Messages'
-  },
-
   ...(isSuperAdmin ? [{
     id: 'Manage Advisors',
     icon: ShieldCheckIcon,
@@ -136,6 +133,75 @@ export function Sidebar({
               </button>);
 
           })}
+
+          <div className="relative group">
+            <button
+              type="button"
+              className={`w-full flex items-center py-3 px-3 rounded-lg transition-colors group relative ${isAcademicsActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
+              title={collapsed ? 'Academics' : undefined}>
+
+              {isAcademicsActive &&
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-must-green rounded-r-full" />
+              }
+              <BookCopyIcon
+                className={`w-5 h-5 flex-shrink-0 ${isAcademicsActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : 'mr-3'}`} />
+
+
+              {!collapsed &&
+              <>
+                  <span className="font-medium text-sm whitespace-nowrap">Academics</span>
+                  <span className="ml-auto text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300">
+                    <ChevronDownIcon className="w-4 h-4 group-hover:hidden" />
+                    <ChevronUpIcon className="w-4 h-4 hidden group-hover:block" />
+                  </span>
+                </>
+              }
+            </button>
+
+            <div
+              className={`hidden group-hover:block ${collapsed ? 'absolute left-full top-0 ml-2 w-64' : 'pl-4 pr-1 pt-1'}`}>
+
+              <div className="rounded-lg border border-must-border bg-must-surface shadow-lg md:shadow-none">
+                <div className="py-2">
+                  {academicItems.map((item) => {
+                    const isSubActive = activePage === item.id;
+                    const Icon = item.icon;
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onPageChange(item.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}>
+
+                        <Icon className={`w-4 h-4 flex-shrink-0 ${isSubActive ? 'text-must-green' : 'text-slate-400'}`} />
+                        <span className="text-left whitespace-nowrap">{item.label}</span>
+                      </button>);
+
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onPageChange('Messages')}
+            className={`w-full flex items-center py-3 px-3 rounded-lg transition-colors group relative ${activePage === 'Messages' ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}>
+
+            {activePage === 'Messages' &&
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-must-green rounded-r-full" />
+            }
+            <MessageSquareIcon
+              className={`w-5 h-5 flex-shrink-0 ${activePage === 'Messages' ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : 'mr-3'}`} />
+
+
+            {!collapsed &&
+            <span className="font-medium text-sm whitespace-nowrap">
+                Messages
+              </span>
+            }
+          </button>
         </nav>
       </div>
 
