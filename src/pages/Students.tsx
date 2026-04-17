@@ -1,14 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowUpDownIcon,
+  DownloadIcon,
+  FileTextIcon,
   MailIcon,
   MessageSquareIcon,
   PlusIcon,
-  SearchIcon } from
+  SearchIcon,
+  UploadIcon } from
 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { supabaseHonorListBucket } from '../lib/supabase';
+import {
+  getHonorListDocument,
+  upsertHonorListDocument,
+  type HonorListRecord
+} from '../services/honorListService';
+import { getPublicFileUrl } from '../services/storageUtils';
 import {
   createStudent,
   listStudents,
@@ -46,6 +56,12 @@ export function Students({ onNavigateToMessages }: StudentsProps) {
   const [formValues, setFormValues] = useState<StudentInput>(DEFAULT_FORM_VALUES);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
+  const [honorListRecord, setHonorListRecord] = useState<HonorListRecord | null>(null);
+  const [selectedHonorListFile, setSelectedHonorListFile] = useState<File | null>(null);
+  const [isHonorListLoading, setIsHonorListLoading] = useState(true);
+  const [isHonorListSaving, setIsHonorListSaving] = useState(false);
+  const [honorListError, setHonorListError] = useState<string | null>(null);
+  const [honorListSuccess, setHonorListSuccess] = useState<string | null>(null);
 
   const levelOptions = useMemo(() => {
     const levels = new Set<string>();
@@ -55,6 +71,15 @@ export function Students({ onNavigateToMessages }: StudentsProps) {
 
     return Array.from(levels).sort();
   }, [students]);
+
+const trimUntilCapital = (str : String) => {
+  // Find the index of the first character between A and Z
+  const firstCapIndex = str.search(/[A-Z]/);
+
+  // If no capital letter is found, return an empty string or the original
+  // depending on your preference. Here we return the slice if found.
+  return firstCapIndex !== -1 ? str.slice(firstCapIndex) : "";
+};
 
   const filteredStudents = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -98,6 +123,7 @@ export function Students({ onNavigateToMessages }: StudentsProps) {
 
   useEffect(() => {
     loadStudents();
+    loadHonorList();
   }, []);
 
   const loadStudents = async () => {
@@ -112,6 +138,48 @@ export function Students({ onNavigateToMessages }: StudentsProps) {
       setFeedbackError(message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadHonorList = async () => {
+    setIsHonorListLoading(true);
+    setHonorListError(null);
+
+    try {
+      const data = await getHonorListDocument();
+      setHonorListRecord(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load honor list.';
+      setHonorListError(message);
+    } finally {
+      setIsHonorListLoading(false);
+    }
+  };
+
+  const handleUploadHonorList = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!selectedHonorListFile) {
+      setHonorListError('Please choose a PDF file first.');
+      return;
+    }
+
+    setIsHonorListSaving(true);
+    setHonorListError(null);
+    setHonorListSuccess(null);
+
+    try {
+      await upsertHonorListDocument(selectedHonorListFile, {
+        existingFilePath: honorListRecord?.file_path
+      });
+      setSelectedHonorListFile(null);
+      setHonorListSuccess(honorListRecord ? 'Honor list updated successfully.' : 'Honor list uploaded successfully.');
+      await loadHonorList();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to upload honor list PDF.';
+      setHonorListError(message);
+    } finally {
+      setIsHonorListSaving(false);
     }
   };
 
@@ -161,6 +229,17 @@ export function Students({ onNavigateToMessages }: StudentsProps) {
   const navigateToMessages = () => {
     onNavigateToMessages?.();
   };
+
+  const honorListFileUrl = getPublicFileUrl(supabaseHonorListBucket, honorListRecord?.file_path);
+
+  const honorListFileName = useMemo(() => {
+    if (!honorListRecord?.file_path) {
+      return null;
+    }
+
+    const segments = honorListRecord.file_path.split('/');
+    return segments[segments.length - 1] || honorListRecord.file_path;
+  }, [honorListRecord]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -256,6 +335,81 @@ export function Students({ onNavigateToMessages }: StudentsProps) {
           {feedbackSuccess}
         </Card>
       }
+
+      <Card className="p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <FileTextIcon className="w-5 h-5 text-must-green" />
+          <h2 className="text-lg font-semibold text-must-text-primary">Honor List PDF</h2>
+        </div>
+
+        {isHonorListLoading ?
+        <p className="text-sm text-must-text-secondary">Loading honor list...</p> :
+        <div className="space-y-2 text-sm">
+            <p className="text-must-text-secondary">
+              {honorListRecord ? 'Latest Honor List' : 'No honor list uploaded yet.'}
+            </p>
+            {honorListFileName &&
+            <p className="text-must-text-primary break-all">
+                File: {trimUntilCapital(honorListFileName)}
+              </p>
+            }
+          </div>
+        }
+
+        <form className="space-y-3" onSubmit={handleUploadHonorList}>
+          <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
+            <UploadIcon className="w-4 h-4" />
+            <span className="text-sm">Choose honor list PDF</span>
+            <input
+              type="file"
+              className="hidden"
+              accept="application/pdf"
+              onChange={(event) => {
+                setSelectedHonorListFile(event.target.files?.[0] ?? null);
+                setHonorListError(null);
+                setHonorListSuccess(null);
+              }} />
+
+          </label>
+
+          {selectedHonorListFile &&
+          <p className="text-xs text-must-text-secondary break-all">
+              Selected: {selectedHonorListFile.name}
+            </p>
+          }
+
+          {honorListError &&
+          <p className="text-sm text-red-500">{honorListError}</p>
+          }
+          {honorListSuccess &&
+          <p className="text-sm text-green-600">{honorListSuccess}</p>
+          }
+
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="submit"
+              disabled={isHonorListSaving || !selectedHonorListFile}
+              icon={<UploadIcon className="w-4 h-4" />}>
+
+              {isHonorListSaving ? 'Saving...' : honorListRecord ? 'Replace PDF' : 'Upload PDF'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!honorListFileUrl}
+              icon={<DownloadIcon className="w-4 h-4" />}
+              onClick={() => {
+                if (!honorListFileUrl) {
+                  return;
+                }
+                window.open(honorListFileUrl, '_blank', 'noopener,noreferrer');
+              }}>
+
+              Download Current PDF
+            </Button>
+          </div>
+        </form>
+      </Card>
 
       <Card className="p-4">
         <div className="flex flex-col md:flex-row gap-4">

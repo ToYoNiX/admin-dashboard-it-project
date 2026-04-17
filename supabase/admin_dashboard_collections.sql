@@ -172,6 +172,15 @@ create table if not exists public.students (
   constraint students_gpa_valid check (gpa is null or (gpa >= 0 and gpa <= 4))
 );
 
+create table if not exists public.student_honor_list_documents (
+  key text primary key default 'current',
+  file_path text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint student_honor_list_singleton check (key = 'current'),
+  constraint student_honor_list_file_not_blank check (length(trim(file_path)) > 0)
+);
+
 alter table if exists public.staff
 add column if not exists department text;
 
@@ -307,6 +316,12 @@ before update on public.students
 for each row
 execute function public.set_updated_at_column();
 
+drop trigger if exists trg_student_honor_list_set_updated_at on public.student_honor_list_documents;
+create trigger trg_student_honor_list_set_updated_at
+before update on public.student_honor_list_documents
+for each row
+execute function public.set_updated_at_column();
+
 alter table public.news enable row level security;
 alter table public.events enable row level security;
 alter table public.study_plans enable row level security;
@@ -317,6 +332,7 @@ alter table public.photo_gallery enable row level security;
 alter table public.advisor_resources enable row level security;
 alter table public.student_resources enable row level security;
 alter table public.students enable row level security;
+alter table public.student_honor_list_documents enable row level security;
 
 -- Demo/admin dashboard anon policies. Tighten for production.
 drop policy if exists news_select_anon on public.news;
@@ -506,6 +522,93 @@ for insert to authenticated with check (true);
 drop policy if exists students_update_authenticated on public.students;
 create policy students_update_authenticated on public.students
 for update to authenticated using (true) with check (true);
+
+drop policy if exists student_honor_list_select_anon on public.student_honor_list_documents;
+create policy student_honor_list_select_anon on public.student_honor_list_documents
+for select to anon using (true);
+
+drop policy if exists student_honor_list_insert_anon on public.student_honor_list_documents;
+create policy student_honor_list_insert_anon on public.student_honor_list_documents
+for insert to anon with check (true);
+
+drop policy if exists student_honor_list_update_anon on public.student_honor_list_documents;
+create policy student_honor_list_update_anon on public.student_honor_list_documents
+for update to anon using (true) with check (true);
+
+drop policy if exists student_honor_list_delete_anon on public.student_honor_list_documents;
+create policy student_honor_list_delete_anon on public.student_honor_list_documents
+for delete to anon using (true);
+
+drop policy if exists student_honor_list_select_authenticated on public.student_honor_list_documents;
+create policy student_honor_list_select_authenticated on public.student_honor_list_documents
+for select to authenticated using (true);
+
+drop policy if exists student_honor_list_insert_authenticated on public.student_honor_list_documents;
+create policy student_honor_list_insert_authenticated on public.student_honor_list_documents
+for insert to authenticated with check (true);
+
+drop policy if exists student_honor_list_update_authenticated on public.student_honor_list_documents;
+create policy student_honor_list_update_authenticated on public.student_honor_list_documents
+for update to authenticated using (true) with check (true);
+
+drop policy if exists student_honor_list_delete_authenticated on public.student_honor_list_documents;
+create policy student_honor_list_delete_authenticated on public.student_honor_list_documents
+for delete to authenticated using (true);
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'honor-list-files',
+  'honor-list-files',
+  true,
+  20971520,
+  array['application/pdf']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists honor_list_files_public_read on storage.objects;
+create policy honor_list_files_public_read on storage.objects
+for select to public
+using (bucket_id = 'honor-list-files');
+
+drop policy if exists honor_list_files_anon_insert on storage.objects;
+create policy honor_list_files_anon_insert on storage.objects
+for insert to anon
+with check (bucket_id = 'honor-list-files');
+
+drop policy if exists honor_list_files_anon_update on storage.objects;
+create policy honor_list_files_anon_update on storage.objects
+for update to anon
+using (bucket_id = 'honor-list-files')
+with check (bucket_id = 'honor-list-files');
+
+drop policy if exists honor_list_files_anon_delete on storage.objects;
+create policy honor_list_files_anon_delete on storage.objects
+for delete to anon
+using (bucket_id = 'honor-list-files');
+
+drop policy if exists honor_list_files_authenticated_read on storage.objects;
+create policy honor_list_files_authenticated_read on storage.objects
+for select to authenticated
+using (bucket_id = 'honor-list-files');
+
+drop policy if exists honor_list_files_authenticated_insert on storage.objects;
+create policy honor_list_files_authenticated_insert on storage.objects
+for insert to authenticated
+with check (bucket_id = 'honor-list-files');
+
+drop policy if exists honor_list_files_authenticated_update on storage.objects;
+create policy honor_list_files_authenticated_update on storage.objects
+for update to authenticated
+using (bucket_id = 'honor-list-files')
+with check (bucket_id = 'honor-list-files');
+
+drop policy if exists honor_list_files_authenticated_delete on storage.objects;
+create policy honor_list_files_authenticated_delete on storage.objects
+for delete to authenticated
+using (bucket_id = 'honor-list-files');
 
 drop policy if exists students_delete_authenticated on public.students;
 create policy students_delete_authenticated on public.students

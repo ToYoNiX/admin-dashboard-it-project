@@ -29,6 +29,8 @@ export const supabaseStudentResourcesTable =
   import.meta.env.VITE_SUPABASE_STUDENT_RESOURCES_TABLE || 'student_resources';
 export const supabaseStudentsTable =
   import.meta.env.VITE_SUPABASE_STUDENTS_TABLE || 'students';
+export const supabaseHonorListTable =
+  import.meta.env.VITE_SUPABASE_HONOR_LIST_TABLE || 'student_honor_list_documents';
 export const supabaseAdvisorStudentConversationsTable =
   import.meta.env.VITE_SUPABASE_ADVISOR_STUDENT_CONVERSATIONS_TABLE || 'advisor_student_conversations';
 export const supabaseConversationMessagesTable =
@@ -50,6 +52,8 @@ export const supabaseGalleryImagesBucket =
   import.meta.env.VITE_SUPABASE_GALLERY_IMAGES_BUCKET || 'gallery-images';
 export const supabaseResourcesFilesBucket =
   import.meta.env.VITE_SUPABASE_RESOURCES_FILES_BUCKET || 'resources-files';
+export const supabaseHonorListBucket =
+  import.meta.env.VITE_SUPABASE_HONOR_LIST_BUCKET || 'honor-list-files';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
