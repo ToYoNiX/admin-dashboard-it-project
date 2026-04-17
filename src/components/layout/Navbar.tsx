@@ -4,7 +4,8 @@ import {
   LogOutIcon,
   MoonIcon,
   SunIcon,
-  SettingsIcon } from
+  SettingsIcon,
+  PlaneIcon } from
 'lucide-react';
 import { useState } from 'react';
 interface NavbarProps {
@@ -44,40 +45,21 @@ export function Navbar({
 
   return (
     <header className="h-16 bg-[#0D1B3E] text-white sticky top-0 z-50 flex items-center justify-between px-4 shadow-md">
-      <div className="flex items-center gap-4">
-        <button
-          onClick={onToggleSidebar}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
-          aria-label="Toggle Sidebar">
-
-          <MenuIcon className="w-5 h-5" />
-        </button>
-
-        <div className="flex items-center gap-3 cursor-pointer">
-          <div className="flex items-center justify-center">
-            <img src="/assists/must_logo.png" alt="MISR UNIVERSITY Logo" className="h-10 w-auto object-contain" />
-          </div>
-          <div className="hidden sm:block">
-            <h1 className="text-sm font-bold tracking-wide leading-tight">
-              MISR UNIVERSITY
-            </h1>
-            <p className="text-[10px] text-gray-300 tracking-wider">
-              FOR SCIENCE & TECHNOLOGY
-            </p>
-          </div>
-        </div>
-      </div>
-
       <div className="flex items-center gap-2 sm:gap-3">
+        <div className="w-9 h-9 rounded-full bg-must-green text-white flex items-center justify-center text-sm font-bold border-2 border-white/20 mr-1 overflow-hidden">
+          {userAvatarUrl ?
+          <img src={userAvatarUrl} alt="Advisor avatar" className="w-full h-full object-cover" /> :
+          initials}
+        </div>
+        <ButtonLogout onLogout={onLogout} isLoggingOut={isLoggingOut} />
+        <ButtonVisitSite />
+
         <button
-          onClick={onToggleDarkMode}
+          onClick={onOpenSettings}
+          title="Open Settings"
           className="p-2 hover:bg-white/10 rounded-full transition-colors">
 
-          {darkMode ?
-          <SunIcon className="w-5 h-5" /> :
-
-          <MoonIcon className="w-5 h-5" />
-          }
+          <SettingsIcon className="w-5 h-5" />
         </button>
 
         <div className="relative">
@@ -95,7 +77,7 @@ export function Navbar({
           </button>
 
           {isNotificationsOpen ?
-          <div className="absolute right-0 mt-2 w-72 rounded-lg border border-must-border bg-must-surface shadow-lg z-30 text-must-text-primary">
+          <div className="absolute left-0 mt-2 w-72 rounded-lg border border-must-border bg-must-surface shadow-lg z-30 text-must-text-primary">
               <div className="px-4 py-3 border-b border-must-border">
                 <p className="text-sm font-semibold">Message Notifications</p>
                 <p className="text-xs text-must-text-secondary mt-1">
@@ -116,19 +98,32 @@ export function Navbar({
             </div> :
           null}
         </div>
+
         <button
-          onClick={onOpenSettings}
-          title="Open Settings"
+          onClick={onToggleDarkMode}
           className="p-2 hover:bg-white/10 rounded-full transition-colors">
 
-          <SettingsIcon className="w-5 h-5" />
+          {darkMode ?
+          <SunIcon className="w-5 h-5" /> :
+
+          <MoonIcon className="w-5 h-5" />
+          }
+        </button>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onToggleSidebar}
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
+          aria-label="Toggle Sidebar">
+
+          <MenuIcon className="w-5 h-5" />
         </button>
 
-        <ButtonLogout onLogout={onLogout} isLoggingOut={isLoggingOut} />
-        <div className="w-9 h-9 rounded-full bg-must-green text-white flex items-center justify-center text-sm font-bold border-2 border-white/20 ml-1 overflow-hidden">
-          {userAvatarUrl ?
-          <img src={userAvatarUrl} alt="Advisor avatar" className="w-full h-full object-cover" /> :
-          initials}
+        <div className="flex items-center gap-3 cursor-pointer">
+          <div className="flex items-center justify-center">
+            <img src="/assists/1740307130_140_87669_group1000004290.svg" alt="MISR UNIVERSITY Logo" className="h-14 w-auto object-contain" />
+          </div>
         </div>
       </div>
     </header>);
@@ -150,5 +145,19 @@ function ButtonLogout({ onLogout, isLoggingOut }: ButtonLogoutProps) {
       <LogOutIcon className="w-3.5 h-3.5" />
       {isLoggingOut ? 'Logging out...' : 'Logout'}
     </button>);
+
+}
+
+function ButtonVisitSite() {
+  return (
+    <a
+      href="https://international-student-platform.vercel.app/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white/10 hover:bg-white/20 transition-colors">
+
+      <PlaneIcon className="w-3.5 h-3.5" />
+      Visit Site
+    </a>);
 
 }
