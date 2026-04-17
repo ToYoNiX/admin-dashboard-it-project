@@ -26,6 +26,7 @@ import {
   createStudent,
   listStudents,
   studentMajors,
+  studentStatuses,
   type StudentInput,
   type StudentRecord } from
 '../services/studentsService';
@@ -50,7 +51,8 @@ const DEFAULT_FORM_VALUES: StudentInput = {
   mobile: '',
   email: '',
   advisorName: '',
-  gpa: null
+  gpa: null,
+  status: 'active'
 };
 
 const gpaRanges = [
@@ -168,7 +170,10 @@ async function parseStudentSheet(file: File): Promise<StudentInput[]> {
         mobile: extractCell(row, ['mobile', 'phone', 'phone number']),
         email: normalizedEmail,
         advisorName: extractCell(row, ['advisor name', 'advisor', 'advisorname']),
-        nationality: extractCell(row, ['nationality', 'country'])
+        nationality: extractCell(row, ['nationality', 'country']),
+        status: studentStatuses.includes(extractCell(row, ['status']).toLowerCase() as typeof studentStatuses[number]) ?
+          extractCell(row, ['status']).toLowerCase() as typeof studentStatuses[number] :
+          'active'
       } satisfies StudentInput;
     })
     .filter((row) => row.studentId || row.fullName);
@@ -802,19 +807,40 @@ const trimUntilCapital = (str : String) => {
                   Full Name
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
-                  Nationality
+                  College
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Major
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Team Code
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Amit
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Class
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Mobile
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Email
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
                   Advisor
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
-                  Major
+                  Nationality
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
                   Level
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
                   GPA
+                </th>
+                <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary">
+                  Status
                 </th>
                 <th className="px-6 py-4 text-sm font-semibold text-must-text-secondary text-right">
                   Actions
@@ -837,19 +863,45 @@ const trimUntilCapital = (str : String) => {
                     {student.full_name}
                   </td>
                   <td className="px-6 py-4 text-sm text-must-text-secondary">
-                    {student.nationality}
+                    {student.college || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-must-text-secondary">
+                    {student.major.toUpperCase()}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-must-text-secondary">
+                    {student.team_code || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-must-text-secondary">
+                    {student.amit || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-must-text-secondary">
+                    {student.class_name || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-must-text-secondary">
+                    {student.mobile || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-must-text-secondary">
+                    {student.email || `${student.student_id}@must.edu.eg`}
                   </td>
                   <td className="px-6 py-4 text-sm text-must-text-secondary">
                     {student.advisor_name || '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-must-text-secondary">
-                    {student.major.toUpperCase()}
+                    {student.nationality}
                   </td>
                   <td className="px-6 py-4 text-sm text-must-text-secondary">
                     {student.level}
                   </td>
                   <td className="px-6 py-4 text-sm text-must-text-secondary">
                     {formatGpa(student.gpa)}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${student.status === 'discontinued' ?
+                      'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
+                      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'}`}>
+                      {student.status === 'discontinued' ? 'Discontinued' : 'Active'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-right space-x-2">
                     <button
@@ -872,7 +924,7 @@ const trimUntilCapital = (str : String) => {
               {!isLoading && filteredStudents.length === 0 &&
               <tr>
                   <td
-                    colSpan={8}
+                    colSpan={15}
                     className="px-6 py-8 text-center text-sm text-must-text-secondary">
 
                     No students found.
@@ -882,7 +934,7 @@ const trimUntilCapital = (str : String) => {
               {isLoading &&
               <tr>
                   <td
-                    colSpan={8}
+                    colSpan={15}
                     className="px-6 py-8 text-center text-sm text-must-text-secondary">
 
                     Loading students...

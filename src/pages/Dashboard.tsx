@@ -4,6 +4,8 @@ import {
   GlobeIcon,
   FileTextIcon,
   CheckCircleIcon,
+  UserCheckIcon,
+  UserXIcon,
   DownloadIcon } from
 'lucide-react';
 import { StatCard } from '../components/ui/StatCard';
@@ -21,6 +23,7 @@ import {
   ResponsiveContainer } from
 'recharts';
 import { listStudents, type StudentRecord } from '../services/studentsService';
+import { countAdvisorProfiles } from '../services/authService';
 
 function formatGpa(gpa: number | null): string {
   if (gpa == null || Number.isNaN(gpa)) {
@@ -89,6 +92,7 @@ export function Dashboard({ userName }: DashboardProps) {
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [advisorCount, setAdvisorCount] = useState(0);
   const countryChartRef = useRef<HTMLDivElement | null>(null);
   const majorChartRef = useRef<HTMLDivElement | null>(null);
   const levelChartRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +105,9 @@ export function Dashboard({ userName }: DashboardProps) {
 
       try {
         const data = await listStudents();
+        const advisors = await countAdvisorProfiles();
         setStudents(data);
+        setAdvisorCount(advisors);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load students for dashboard.';
         setLoadError(message);
@@ -180,6 +186,18 @@ export function Dashboard({ userName }: DashboardProps) {
 
   const uniqueCountriesCount = useMemo(() => {
     return new Set(students.map((student) => toCountryLabel(student.nationality || 'Unknown'))).size;
+  }, [students]);
+
+  const activeStudentsCount = useMemo(() => {
+    return students.filter((student) => student.status === 'active').length;
+  }, [students]);
+
+  const discontinuedStudentsCount = useMemo(() => {
+    return students.filter((student) => student.status === 'discontinued').length;
+  }, [students]);
+
+  const strugglingStudentsCount = useMemo(() => {
+    return students.filter((student) => student.gpa != null && student.gpa < 2).length;
   }, [students]);
 
   const highestGpa = useMemo(() => {
@@ -339,26 +357,26 @@ export function Dashboard({ userName }: DashboardProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           icon={<UsersIcon className="w-6 h-6" />}
-          value={isLoading ? '...' : students.length}
-          label="Total Students"
+          value={isLoading ? '...' : activeStudentsCount}
+          label="Active Students"
           colorClass="text-blue-600 dark:text-white bg-blue-100 dark:bg-blue-900/30" />
 
         <StatCard
-          icon={<GlobeIcon className="w-6 h-6" />}
-          value={isLoading ? '...' : uniqueCountriesCount}
-          label="Number of Countries"
+          icon={<UserCheckIcon className="w-6 h-6" />}
+          value={isLoading ? '...' : advisorCount}
+          label="Advisors"
           colorClass="text-purple-600 dark:text-white bg-purple-100 dark:bg-purple-900/30" />
 
         <StatCard
           icon={<FileTextIcon className="w-6 h-6" />}
-          value={isLoading ? '...' : formatGpa(highestGpa)}
-          label="Highest GPA"
+          value={isLoading ? '...' : strugglingStudentsCount}
+          label="Struggling Students"
           colorClass="text-yellow-600 dark:text-white bg-yellow-100 dark:bg-yellow-900/30" />
 
         <StatCard
-          icon={<CheckCircleIcon className="w-6 h-6" />}
-          value={isLoading ? '...' : formatGpa(lowestGpa)}
-          label="Lowest GPA"
+          icon={<UserXIcon className="w-6 h-6" />}
+          value={isLoading ? '...' : discontinuedStudentsCount}
+          label="Discontinued Students"
           colorClass="text-green-600 dark:text-white bg-green-100 dark:bg-green-900/30" />
 
       </div>

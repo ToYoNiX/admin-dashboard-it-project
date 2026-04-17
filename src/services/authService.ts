@@ -180,3 +180,19 @@ export async function updateAdvisorProfileName(userId: string, fullName: string)
     throw new Error(error.message);
   }
 }
+
+export async function countAdvisorProfiles(): Promise<number> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const { count, error } = await supabase
+    .from('advisor_profiles')
+    .select('*', { count: 'exact', head: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
+}

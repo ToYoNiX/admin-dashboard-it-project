@@ -2,6 +2,8 @@ import { supabase, supabaseStudentsTable } from '../lib/supabase';
 
 export const studentMajors = ['cs', 'is', 'ai', 'general'] as const;
 export type StudentMajor = (typeof studentMajors)[number];
+export const studentStatuses = ['active', 'discontinued'] as const;
+export type StudentStatus = (typeof studentStatuses)[number];
 
 export interface StudentRecord {
   student_id: string;
@@ -17,6 +19,7 @@ export interface StudentRecord {
   email: string | null;
   advisor_name: string | null;
   gpa: number | null;
+  status: StudentStatus;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +38,7 @@ export interface StudentInput {
   email?: string;
   advisorName?: string;
   gpa: number | null;
+  status?: StudentStatus;
 }
 
 function validateStudentInput(input: StudentInput): void {
@@ -52,6 +56,9 @@ function validateStudentInput(input: StudentInput): void {
   }
   if (!input.level.trim()) {
     throw new Error('Level is required.');
+  }
+  if (input.status && !studentStatuses.includes(input.status)) {
+    throw new Error('Please select a valid student status.');
   }
   if (input.gpa != null && (input.gpa < 0 || input.gpa > 4)) {
     throw new Error('GPA must be between 0 and 4.');
@@ -107,6 +114,7 @@ export async function createStudent(input: StudentInput): Promise<void> {
     email: input.email?.trim() || null,
     advisor_name: input.advisorName?.trim() || null,
     gpa: input.gpa,
+    status: input.status ?? 'active',
     created_at: now,
     updated_at: now
   });
@@ -145,6 +153,7 @@ export async function bulkUpsertStudents(inputs: StudentInput[]): Promise<void> 
     email: input.email?.trim() || null,
     advisor_name: input.advisorName?.trim() || null,
     gpa: input.gpa,
+    status: input.status ?? 'active',
     updated_at: now
   }));
 
