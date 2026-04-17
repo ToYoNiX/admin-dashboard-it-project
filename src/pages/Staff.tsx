@@ -30,6 +30,7 @@ interface StaffFormData {
   title: string;
   firstName: string;
   lastName: string;
+  email: string;
   department: string;
   position: string;
   speciality: string;
@@ -40,6 +41,7 @@ const initialFormData: StaffFormData = {
   title: '',
   firstName: '',
   lastName: '',
+  email: '',
   department: '',
   position: '',
   speciality: '',
@@ -113,6 +115,7 @@ export function Staff() {
       title: record.title,
       firstName: record.first_name,
       lastName: record.last_name,
+      email: record.email ?? '',
       department: record.department ?? '',
       position: record.position,
       speciality: record.speciality,
@@ -240,6 +243,15 @@ export function Staff() {
                 value={formData.lastName}
                 onChange={handleInputChange}
                 placeholder="Enter last name"
+                required
+              />
+              <Input
+                label="Email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="name@must.edu.eg"
+                type="email"
                 required
               />
               <Input
@@ -397,6 +409,7 @@ export function Staff() {
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-must-text-primary truncate">{fullName}</h3>
                         <p className="text-sm text-must-text-secondary truncate">{record.position}</p>
+                        <p className="text-xs text-must-text-secondary mt-1 truncate">{record.email || 'No email provided'}</p>
                         <p className="text-xs text-must-text-secondary mt-1 truncate">Department: {record.department || 'N/A'}</p>
                         <p className="text-xs text-must-text-secondary mt-1 truncate">{record.speciality}</p>
                       </div>

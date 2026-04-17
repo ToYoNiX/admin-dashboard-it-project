@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 export interface AdvisorProfile {
   id: string;
   email: string;
+  username: string | null;
   full_name: string | null;
   avatar_url: string | null;
   is_super_admin: boolean;
@@ -11,9 +12,58 @@ export interface AdvisorProfile {
   updated_at: string;
 }
 
-export async function signInWithPassword(email: string, password: string): Promise<void> {
+async function resolveEmailFromLoginIdentifier(loginIdentifier: string): Promise<string | null> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
+  }
+
+  const normalized = loginIdentifier.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.includes('@')) {
+    return normalized;
+  }
+
+  const byUsername = await supabase
+    .from('advisor_profiles')
+    .select('email')
+    .eq('username', normalized)
+    .maybeSingle();
+
+  if (byUsername.error) {
+    const isMissingUsernameColumn =
+      byUsername.error.code === '42703' || /username/i.test(byUsername.error.message ?? '');
+
+    if (!isMissingUsernameColumn) {
+      throw new Error(byUsername.error.message);
+    }
+  } else if (byUsername.data?.email) {
+    return String(byUsername.data.email).toLowerCase();
+  }
+
+  const byEmail = await supabase
+    .from('advisor_profiles')
+    .select('email')
+    .eq('email', normalized)
+    .maybeSingle();
+
+  if (byEmail.error) {
+    throw new Error(byEmail.error.message);
+  }
+
+  return byEmail.data?.email ? String(byEmail.data.email).toLowerCase() : null;
+}
+
+export async function signInWithPassword(loginIdentifier: string, password: string): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const email = await resolveEmailFromLoginIdentifier(loginIdentifier);
+  if (!email) {
+    throw new Error('No advisor account found for this username or email.');
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
