@@ -38,6 +38,11 @@ export function Sidebar({
     label: 'Academic Staff'
   },
   {
+    id: 'Study Plans',
+    icon: BookCopyIcon,
+    label: 'Educational Programs'
+  },
+  {
     id: 'Advisor Resources',
     icon: GraduationCapIcon,
     label: 'Advisor Resources'
@@ -46,11 +51,6 @@ export function Sidebar({
     id: 'Student Resources',
     icon: SchoolIcon,
     label: 'Student Resources'
-  },
-  {
-    id: 'Study Plans',
-    icon: BookCopyIcon,
-    label: 'Study Plans'
   },
   {
     id: 'Schedules',

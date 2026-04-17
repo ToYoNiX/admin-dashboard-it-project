@@ -17,11 +17,27 @@ export const STUDY_PLAN_SINGLE_FIELDS = [
   'undergrad_cs_new_curriculum',
   'undergrad_is_new_curriculum',
   'undergrad_ai_new_curriculum',
-  'postgrad_cs',
-  'postgrad_ai'
+  'master_cs_old_curriculum',
+  'master_is_old_curriculum',
+  'master_ai_old_curriculum',
+  'master_cs_new_curriculum',
+  'master_is_new_curriculum',
+  'master_ai_new_curriculum',
+  'phd_cs_old_curriculum',
+  'phd_is_old_curriculum',
+  'phd_ai_old_curriculum',
+  'phd_cs_new_curriculum',
+  'phd_is_new_curriculum',
+  'phd_ai_new_curriculum'
 ] as const;
 
 export type StudyPlanSingleField = (typeof STUDY_PLAN_SINGLE_FIELDS)[number];
+export const STUDY_PLAN_DIPLOMA_FIELDS = [
+  'diploma_big_data',
+  'diploma_applied_ai',
+  'diploma_business_intelligence'
+] as const;
+export type StudyPlanDiplomaField = (typeof STUDY_PLAN_DIPLOMA_FIELDS)[number];
 
 export interface StudyPlanRecord {
   id: string;
@@ -31,9 +47,21 @@ export interface StudyPlanRecord {
   undergrad_cs_new_curriculum: string | null;
   undergrad_is_new_curriculum: string | null;
   undergrad_ai_new_curriculum: string | null;
-  postgrad_cs: string | null;
-  postgrad_ai: string | null;
-  professional_diplomas: string[] | null;
+  master_cs_old_curriculum: string | null;
+  master_is_old_curriculum: string | null;
+  master_ai_old_curriculum: string | null;
+  master_cs_new_curriculum: string | null;
+  master_is_new_curriculum: string | null;
+  master_ai_new_curriculum: string | null;
+  phd_cs_old_curriculum: string | null;
+  phd_is_old_curriculum: string | null;
+  phd_ai_old_curriculum: string | null;
+  phd_cs_new_curriculum: string | null;
+  phd_is_new_curriculum: string | null;
+  phd_ai_new_curriculum: string | null;
+  diploma_big_data: string[] | null;
+  diploma_applied_ai: string[] | null;
+  diploma_business_intelligence: string[] | null;
   is_published: boolean;
   published_at: string | null;
   created_at: string;
@@ -41,12 +69,14 @@ export interface StudyPlanRecord {
 }
 
 export type StudyPlanSingleFileMap = Partial<Record<StudyPlanSingleField, File | null>>;
+export type StudyPlanDiplomaFileMap = Partial<Record<StudyPlanDiplomaField, File[]>>;
+export type StudyPlanDiplomaRemoveMap = Partial<Record<StudyPlanDiplomaField, string[]>>;
 
 export interface StudyPlansUpdateOptions {
   singleFiles: StudyPlanSingleFileMap;
   removeSingleFiles: Partial<Record<StudyPlanSingleField, boolean>>;
-  professionalDiplomaFiles: File[];
-  removeProfessionalDiplomaPaths: string[];
+  diplomaFiles: StudyPlanDiplomaFileMap;
+  removeDiplomaPaths: StudyPlanDiplomaRemoveMap;
   existingRecord?: StudyPlanRecord;
 }
 
@@ -107,15 +137,17 @@ export async function listStudyPlans(): Promise<StudyPlanRecord[]> {
 
   return (data ?? []).map((row) => ({
     ...row,
-    professional_diplomas: Array.isArray(row.professional_diplomas)
-      ? (row.professional_diplomas as string[])
+    diploma_big_data: Array.isArray(row.diploma_big_data) ? (row.diploma_big_data as string[]) : null,
+    diploma_applied_ai: Array.isArray(row.diploma_applied_ai) ? (row.diploma_applied_ai as string[]) : null,
+    diploma_business_intelligence: Array.isArray(row.diploma_business_intelligence)
+      ? (row.diploma_business_intelligence as string[])
       : null
   })) as StudyPlanRecord[];
 }
 
 export async function createStudyPlan(options: {
   singleFiles: StudyPlanSingleFileMap;
-  professionalDiplomaFiles: File[];
+  diplomaFiles: StudyPlanDiplomaFileMap;
 }): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
@@ -140,14 +172,18 @@ export async function createStudyPlan(options: {
     }
   }
 
-  const diplomaPaths: string[] = [];
-  for (const file of options.professionalDiplomaFiles) {
-    validateDocumentFile(file, 'Professional diploma file');
-    const path = await uploadDocument(file, id, 'professional_diplomas');
-    diplomaPaths.push(path);
-  }
+  for (const field of STUDY_PLAN_DIPLOMA_FIELDS) {
+    const files = options.diplomaFiles[field] ?? [];
+    const diplomaPaths: string[] = [];
 
-  payload.professional_diplomas = diplomaPaths;
+    for (const file of files) {
+      validateDocumentFile(file, `${field} file`);
+      const path = await uploadDocument(file, id, field);
+      diplomaPaths.push(path);
+    }
+
+    payload[field] = diplomaPaths;
+  }
 
   const { error } = await supabase.from(supabaseStudyPlansTable).insert(payload);
   if (error) {
@@ -195,22 +231,26 @@ export async function updateStudyPlan(
     payload[field] = existingPath;
   }
 
-  const baseDiplomas = (existing?.professional_diplomas ?? []).filter(
-    (path) => !options.removeProfessionalDiplomaPaths.includes(path)
-  );
+  for (const field of STUDY_PLAN_DIPLOMA_FIELDS) {
+    const existingPaths = existing?.[field] ?? [];
+    const removedPaths = options.removeDiplomaPaths[field] ?? [];
+    const incomingFiles = options.diplomaFiles[field] ?? [];
 
-  for (const path of options.removeProfessionalDiplomaPaths) {
-    await deleteStorageFile(bucket, path);
+    const baseDiplomas = existingPaths.filter((path) => !removedPaths.includes(path));
+
+    for (const path of removedPaths) {
+      await deleteStorageFile(bucket, path);
+    }
+
+    const newDiplomas: string[] = [];
+    for (const file of incomingFiles) {
+      validateDocumentFile(file, `${field} file`);
+      const path = await uploadDocument(file, id, field);
+      newDiplomas.push(path);
+    }
+
+    payload[field] = [...baseDiplomas, ...newDiplomas];
   }
-
-  const newDiplomas: string[] = [];
-  for (const file of options.professionalDiplomaFiles) {
-    validateDocumentFile(file, 'Professional diploma file');
-    const path = await uploadDocument(file, id, 'professional_diplomas');
-    newDiplomas.push(path);
-  }
-
-  payload.professional_diplomas = [...baseDiplomas, ...newDiplomas];
 
   const { error } = await supabase.from(supabaseStudyPlansTable).update(payload).eq('id', id);
   if (error) {
@@ -232,8 +272,10 @@ export async function deleteStudyPlan(record: StudyPlanRecord): Promise<void> {
     await deleteStorageFile(bucket, record[field]);
   }
 
-  for (const path of record.professional_diplomas ?? []) {
-    await deleteStorageFile(bucket, path);
+  for (const field of STUDY_PLAN_DIPLOMA_FIELDS) {
+    for (const path of record[field] ?? []) {
+      await deleteStorageFile(bucket, path);
+    }
   }
 
   const { error } = await supabase.from(supabaseStudyPlansTable).delete().eq('id', record.id);
