@@ -9,6 +9,7 @@ create table if not exists public.news (
   description text not null,
   href text,
   image_url text,
+  image_urls text[],
   is_published boolean not null default false,
   published_at timestamptz,
   created_at timestamptz not null default now(),
@@ -173,6 +174,14 @@ create table if not exists public.students (
 
 alter table if exists public.staff
 add column if not exists department text;
+
+alter table if exists public.news
+add column if not exists image_urls text[];
+
+update public.news
+set image_urls = array[image_url]
+where image_url is not null
+  and (image_urls is null or cardinality(image_urls) = 0);
 
 alter table if exists public.advisor_resources
 add column if not exists description text;

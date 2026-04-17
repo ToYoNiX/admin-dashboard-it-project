@@ -3,7 +3,6 @@ import {
   Edit2Icon,
   ExternalLinkIcon,
   EyeIcon,
-  ImageIcon,
   Maximize2Icon,
   NewspaperIcon,
   PlusIcon,
@@ -32,7 +31,21 @@ const initialForm: NewsInput = {
 };
 
 function getFileName(path: string): string {
-  return path.split('/').at(-1) || path;
+  const segments = path.split('/');
+  return segments[segments.length - 1] || path;
+}
+
+function getRecordImagePaths(record: Pick<NewsRecord, 'image_url' | 'image_urls'> | null): string[] {
+  if (!record) {
+    return [];
+  }
+
+  const paths = Array.isArray(record.image_urls) ? record.image_urls : [];
+  if (paths.length > 0) {
+    return paths;
+  }
+
+  return record.image_url ? [record.image_url] : [];
 }
 
 export function News() {
@@ -41,8 +54,8 @@ export function News() {
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState<NewsInput>(initialForm);
   const [formErrors, setFormErrors] = useState<NewsFormErrors>({});
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
-  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
+  const [removedExistingImagePaths, setRemovedExistingImagePaths] = useState<string[]>([]);
   const [editingRecord, setEditingRecord] = useState<NewsRecord | null>(null);
   const [submitError, setSubmitError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<NewsRecord | null>(null);
@@ -52,23 +65,24 @@ export function News() {
     void loadNews();
   }, []);
 
-  const selectedImagePreview = useMemo(() => {
-    if (!selectedImageFile) {
-      return null;
-    }
-    return URL.createObjectURL(selectedImageFile);
-  }, [selectedImageFile]);
+  const selectedImagePreviews = useMemo(
+    () => selectedImageFiles.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [selectedImageFiles]
+  );
 
   useEffect(() => {
     return () => {
-      if (selectedImagePreview) {
-        URL.revokeObjectURL(selectedImagePreview);
+      for (const preview of selectedImagePreviews) {
+        URL.revokeObjectURL(preview.url);
       }
     };
-  }, [selectedImagePreview]);
+  }, [selectedImagePreviews]);
 
-  const existingImagePath = editingRecord?.image_url ?? null;
-  const shouldShowExistingImage = Boolean(existingImagePath && !removeExistingImage && !selectedImageFile);
+  const existingImagePaths = useMemo(() => getRecordImagePaths(editingRecord), [editingRecord]);
+  const visibleExistingImagePaths = useMemo(
+    () => existingImagePaths.filter((path) => !removedExistingImagePaths.includes(path)),
+    [existingImagePaths, removedExistingImagePaths]
+  );
 
   async function loadNews(): Promise<void> {
     try {
@@ -105,8 +119,8 @@ export function News() {
   function resetForm(): void {
     setForm(initialForm);
     setFormErrors({});
-    setSelectedImageFile(null);
-    setRemoveExistingImage(false);
+    setSelectedImageFiles([]);
+    setRemovedExistingImagePaths([]);
     setEditingRecord(null);
     setSubmitError('');
   }
@@ -120,8 +134,8 @@ export function News() {
     });
     setFormErrors({});
     setSubmitError('');
-    setSelectedImageFile(null);
-    setRemoveExistingImage(false);
+    setSelectedImageFiles([]);
+    setRemovedExistingImagePaths([]);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -137,12 +151,12 @@ export function News() {
 
       if (editingRecord) {
         await updateNews(editingRecord.id, form, {
-          imageFile: selectedImageFile,
-          existingImagePath,
-          removeExistingImage
+          imageFiles: selectedImageFiles,
+          existingImagePaths,
+          removedImagePaths: removedExistingImagePaths
         });
       } else {
-        await createNews(form, selectedImageFile);
+        await createNews(form, selectedImageFiles);
       }
 
       await loadNews();
@@ -161,7 +175,7 @@ export function News() {
 
     try {
       setSubmitError('');
-      await deleteNews(deleteTarget.id, deleteTarget.image_url);
+      await deleteNews(deleteTarget.id, getRecordImagePaths(deleteTarget));
       setDeleteTarget(null);
       if (editingRecord?.id === deleteTarget.id) {
         resetForm();
@@ -219,55 +233,91 @@ export function News() {
               />
 
               <div>
-                <label className="block text-sm font-medium text-must-text-primary mb-2">Image (Optional)</label>
+                <label className="block text-sm font-medium text-must-text-primary mb-2">Images (Optional)</label>
                 <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
                   <UploadIcon className="w-4 h-4" />
-                  <span className="text-sm">Choose image</span>
+                  <span className="text-sm">Choose one or more images</span>
                   <input
                     type="file"
                     className="hidden"
+                    multiple
                     accept="image/jpeg,image/png,image/webp"
                     onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      setSelectedImageFile(file);
-                      if (file) {
-                        setRemoveExistingImage(false);
+                      const files = Array.from(event.target.files ?? []);
+                      if (files.length > 0) {
+                        setSelectedImageFiles(files);
                       }
                     }}
                   />
                 </label>
 
-                {selectedImagePreview ? (
+                {selectedImagePreviews.length > 0 ? (
                   <div className="mt-3 rounded-lg border border-must-border p-3 bg-slate-50 dark:bg-slate-800/40">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-must-text-secondary">Selected image preview</span>
+                      <span className="text-xs text-must-text-secondary">
+                        Selected images ({selectedImagePreviews.length})
+                      </span>
                       <button
                         type="button"
-                        onClick={() => setSelectedImageFile(null)}
+                        onClick={() => setSelectedImageFiles([])}
                         className="text-red-600 hover:text-red-700 text-xs inline-flex items-center gap-1"
                       >
                         <XIcon className="w-3 h-3" />
-                        Remove
+                        Clear all
                       </button>
                     </div>
-                    <img src={selectedImagePreview} alt="Preview" className="w-full h-40 object-cover rounded-md" />
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedImagePreviews.map((preview, index) => (
+                        <div key={`${preview.file.name}-${index}`} className="relative rounded-md overflow-hidden border border-must-border">
+                          <img src={preview.url} alt={`Selected preview ${index + 1}`} className="w-full h-28 object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedImageFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index));
+                            }}
+                            className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                            aria-label={`Remove selected image ${index + 1}`}
+                          >
+                            <XIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
 
-                {shouldShowExistingImage && existingImagePath ? (
+                {visibleExistingImagePaths.length > 0 ? (
                   <div className="mt-3 rounded-lg border border-must-border p-3 bg-slate-50 dark:bg-slate-800/40">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-must-text-secondary">Existing image</p>
+                      <p className="text-xs text-must-text-secondary">
+                        Existing images ({visibleExistingImagePaths.length})
+                      </p>
                       <button
                         type="button"
-                        onClick={() => setRemoveExistingImage(true)}
+                        onClick={() => setRemovedExistingImagePaths([...existingImagePaths])}
                         className="text-red-600 hover:text-red-700 text-xs inline-flex items-center gap-1"
                       >
                         <XIcon className="w-3 h-3" />
-                        Remove
+                        Remove all
                       </button>
                     </div>
-                    <p className="text-sm text-must-text-primary mt-1 break-all">{getFileName(existingImagePath)}</p>
+                    <div className="mt-2 space-y-2">
+                      {visibleExistingImagePaths.map((path) => (
+                        <div key={path} className="flex items-center justify-between gap-3 rounded-md border border-must-border px-2 py-1.5">
+                          <p className="text-sm text-must-text-primary break-all">{getFileName(path)}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRemovedExistingImagePaths((prev) => (prev.includes(path) ? prev : [...prev, path]));
+                            }}
+                            className="text-red-600 hover:text-red-700 text-xs inline-flex items-center gap-1 shrink-0"
+                          >
+                            <XIcon className="w-3 h-3" />
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -303,76 +353,100 @@ export function News() {
             records.map((record) => (
               <Card key={record.id} className="hover:border-must-green/40 transition-colors">
                 <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-4 min-w-0">
-                      {record.image_url ? (
-                        <button
-                          type="button"
-                          className="relative group rounded-lg overflow-hidden border border-must-border w-36 h-24 shrink-0"
-                          onClick={() => {
-                            const url = getPublicFileUrl(supabaseNewsImagesBucket, record.image_url);
-                            if (url) {
-                              setPreviewImageUrl(url);
-                            }
-                          }}
-                        >
-                          <img
-                            src={getPublicFileUrl(supabaseNewsImagesBucket, record.image_url) || undefined}
-                            alt={record.title}
-                            className="w-full h-full object-cover"
-                          />
-                          <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium">
-                            <EyeIcon className="w-4 h-4 mr-1" />
-                            View
-                          </span>
-                        </button>
-                      ) : (
-                        <div className="w-36 h-24 shrink-0 rounded-lg border border-must-border bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary flex items-center justify-center text-xs">
-                          No image
-                        </div>
-                      )}
+                  {(() => {
+                    const imagePaths = getRecordImagePaths(record);
+                    const imageUrls = imagePaths
+                      .map((path) => getPublicFileUrl(supabaseNewsImagesBucket, path))
+                      .filter((url): url is string => Boolean(url));
 
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-must-text-primary">{record.title}</h3>
-                        </div>
-                        <p className="text-sm text-must-text-secondary mt-2 whitespace-pre-line">{record.description}</p>
+                    return (
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-4 min-w-0">
+                          {imageUrls.length > 0 ? (
+                            <button
+                              type="button"
+                              className="relative group rounded-lg overflow-hidden border border-must-border w-36 h-24 shrink-0"
+                              onClick={() => setPreviewImageUrl(imageUrls[0])}
+                            >
+                              <img src={imageUrls[0]} alt={record.title} className="w-full h-full object-cover" />
+                              <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium">
+                                <EyeIcon className="w-4 h-4 mr-1" />
+                                View
+                              </span>
+                              {imageUrls.length > 1 ? (
+                                <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[10px] px-2 py-0.5">
+                                  +{imageUrls.length - 1}
+                                </span>
+                              ) : null}
+                            </button>
+                          ) : (
+                            <div className="w-36 h-24 shrink-0 rounded-lg border border-must-border bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary flex items-center justify-center text-xs">
+                              No image
+                            </div>
+                          )}
 
-                        {record.href ? (
-                          <a
-                            href={record.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-3 inline-flex items-center gap-1 text-sm text-must-green hover:underline"
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-must-text-primary">{record.title}</h3>
+                              <span className="text-xs px-2 py-0.5 rounded-full border border-must-border text-must-text-secondary">
+                                {imageUrls.length} {imageUrls.length === 1 ? 'image' : 'images'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-must-text-secondary mt-2 whitespace-pre-line">{record.description}</p>
+
+                            {imageUrls.length > 1 ? (
+                              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                                {imageUrls.map((imageUrl, index) => (
+                                  <button
+                                    key={`${record.id}-image-${index + 1}`}
+                                    type="button"
+                                    className="rounded-md overflow-hidden border border-must-border w-16 h-12 shrink-0"
+                                    onClick={() => setPreviewImageUrl(imageUrl)}
+                                    aria-label={`Preview image ${index + 1} for ${record.title}`}
+                                  >
+                                    <img src={imageUrl} alt={`${record.title} ${index + 1}`} className="w-full h-full object-cover" />
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+
+                            {record.href ? (
+                              <a
+                                href={record.href}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-3 inline-flex items-center gap-1 text-sm text-must-green hover:underline"
+                              >
+                                <ExternalLinkIcon className="w-4 h-4" />
+                                Open link
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            icon={<Edit2Icon className="w-4 h-4" />}
+                            onClick={() => startEdit(record)}
                           >
-                            <ExternalLinkIcon className="w-4 h-4" />
-                            Open link
-                          </a>
-                        ) : null}
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            icon={<Trash2Icon className="w-4 h-4" />}
+                            onClick={() => setDeleteTarget(record)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex gap-2 shrink-0">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        icon={<Edit2Icon className="w-4 h-4" />}
-                        onClick={() => startEdit(record)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2Icon className="w-4 h-4" />}
-                        onClick={() => setDeleteTarget(record)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             ))}
@@ -382,7 +456,7 @@ export function News() {
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
         title="Delete News Item"
-        message="This will permanently delete the news item and its uploaded image. This action cannot be undone."
+        message="This will permanently delete the news item and all its uploaded images. This action cannot be undone."
         confirmLabel="Delete"
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {

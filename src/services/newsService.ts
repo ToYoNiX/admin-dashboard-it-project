@@ -16,6 +16,7 @@ export interface NewsRecord {
   description: string;
   href: string | null;
   image_url: string | null;
+  image_urls: string[] | null;
   is_published: boolean;
   published_at: string | null;
   created_at: string;
@@ -29,6 +30,49 @@ export interface NewsInput {
 }
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function uniqueImagePaths(paths: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+
+  return paths
+    .map((path) => path?.trim() ?? '')
+    .filter((path) => path.length > 0)
+    .filter((path) => {
+      if (seen.has(path)) {
+        return false;
+      }
+
+      seen.add(path);
+      return true;
+    });
+}
+
+function getPrimaryImagePath(paths: string[]): string | null {
+  return paths[0] ?? null;
+}
+
+function normalizeNewsRecord(record: Record<string, unknown>): NewsRecord {
+  const arrayPaths = Array.isArray(record.image_urls)
+    ? record.image_urls.filter((path): path is string => typeof path === 'string')
+    : [];
+
+  const singlePath = typeof record.image_url === 'string' ? record.image_url : null;
+  const imagePaths = uniqueImagePaths([...arrayPaths, singlePath]);
+
+  return {
+    ...(record as NewsRecord),
+    image_urls: imagePaths.length > 0 ? imagePaths : null,
+    image_url: getPrimaryImagePath(imagePaths)
+  };
+}
+
+function isMissingImageUrlsColumn(error: { code?: string; message?: string }): boolean {
+  return error.code === '42703' && /image_urls/i.test(error.message ?? '');
+}
+
+function missingImageUrlsColumnMessage(): string {
+  return 'The news table is missing the image_urls column. Run the latest SQL setup script to enable multi-image news support.';
+}
 
 function assertNewsInput(input: NewsInput): void {
   if (!input.title.trim()) {
@@ -56,10 +100,10 @@ export async function listNews(): Promise<NewsRecord[]> {
     throw new Error(`Failed to load news: ${error.message}`);
   }
 
-  return (data ?? []) as NewsRecord[];
+  return (data ?? []).map((record) => normalizeNewsRecord(record as Record<string, unknown>));
 }
 
-export async function createNews(input: NewsInput, imageFile?: File | null): Promise<void> {
+export async function createNews(input: NewsInput, imageFiles?: File[] | null): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
   }
@@ -67,17 +111,18 @@ export async function createNews(input: NewsInput, imageFile?: File | null): Pro
   assertNewsInput(input);
 
   const id = crypto.randomUUID();
-  let imagePath: string | null = null;
+  const imagePaths: string[] = [];
+  const target = parseStorageTarget(supabaseNewsImagesBucket, 'news');
 
-  if (imageFile) {
+  for (const [index, imageFile] of (imageFiles ?? []).entries()) {
     validateFile(imageFile, {
       maxSizeInMb: 5,
       allowedMimeTypes: IMAGE_MIME_TYPES,
-      label: 'Image'
+      label: `Image #${index + 1}`
     });
 
-    const target = parseStorageTarget(supabaseNewsImagesBucket, 'news');
-    imagePath = await uploadFileToStorage(imageFile, target, id, 'image');
+    const imagePath = await uploadFileToStorage(imageFile, target, id, `image-${index + 1}`);
+    imagePaths.push(imagePath);
   }
 
   const now = new Date().toISOString();
@@ -87,7 +132,8 @@ export async function createNews(input: NewsInput, imageFile?: File | null): Pro
     title: input.title.trim(),
     description: input.description.trim(),
     href: input.href.trim() || null,
-    image_url: imagePath,
+    image_url: getPrimaryImagePath(imagePaths),
+    image_urls: imagePaths.length > 0 ? imagePaths : null,
     is_published: false,
     published_at: null,
     created_at: now,
@@ -95,6 +141,9 @@ export async function createNews(input: NewsInput, imageFile?: File | null): Pro
   });
 
   if (error) {
+    if (isMissingImageUrlsColumn(error)) {
+      throw new Error(missingImageUrlsColumnMessage());
+    }
     throw new Error(`Failed to create news item: ${error.message}`);
   }
 }
@@ -103,9 +152,9 @@ export async function updateNews(
   id: string,
   input: NewsInput,
   options: {
-    imageFile?: File | null;
-    existingImagePath?: string | null;
-    removeExistingImage?: boolean;
+    imageFiles?: File[] | null;
+    existingImagePaths?: string[] | null;
+    removedImagePaths?: string[] | null;
   }
 ): Promise<void> {
   if (!supabase) {
@@ -115,24 +164,29 @@ export async function updateNews(
   assertNewsInput(input);
 
   const target = parseStorageTarget(supabaseNewsImagesBucket, 'news');
-  let nextImagePath = options.existingImagePath ?? null;
+  const existingImagePaths = uniqueImagePaths(options.existingImagePaths ?? []);
+  const removedImagePaths = uniqueImagePaths(options.removedImagePaths ?? []);
+  const removedSet = new Set(removedImagePaths);
 
-  if (options.imageFile) {
-    validateFile(options.imageFile, {
+  const retainedImagePaths = existingImagePaths.filter((path) => !removedSet.has(path));
+
+  const uploadedImagePaths: string[] = [];
+  for (const [index, imageFile] of (options.imageFiles ?? []).entries()) {
+    validateFile(imageFile, {
       maxSizeInMb: 5,
       allowedMimeTypes: IMAGE_MIME_TYPES,
-      label: 'Image'
+      label: `Image #${index + 1}`
     });
 
-    nextImagePath = await uploadFileToStorage(options.imageFile, target, id, 'image');
-
-    if (options.existingImagePath) {
-      await deleteStorageFile(target.bucket, options.existingImagePath);
-    }
-  } else if (options.removeExistingImage && options.existingImagePath) {
-    await deleteStorageFile(target.bucket, options.existingImagePath);
-    nextImagePath = null;
+    const imagePath = await uploadFileToStorage(imageFile, target, id, `image-${index + 1}`);
+    uploadedImagePaths.push(imagePath);
   }
+
+  for (const path of removedImagePaths) {
+    await deleteStorageFile(target.bucket, path);
+  }
+
+  const nextImagePaths = [...retainedImagePaths, ...uploadedImagePaths];
 
   const { error } = await supabase
     .from(supabaseNewsTable)
@@ -140,25 +194,29 @@ export async function updateNews(
       title: input.title.trim(),
       description: input.description.trim(),
       href: input.href.trim() || null,
-      image_url: nextImagePath,
+      image_url: getPrimaryImagePath(nextImagePaths),
+      image_urls: nextImagePaths.length > 0 ? nextImagePaths : null,
       updated_at: new Date().toISOString()
     })
     .eq('id', id);
 
   if (error) {
+    if (isMissingImageUrlsColumn(error)) {
+      throw new Error(missingImageUrlsColumnMessage());
+    }
     throw new Error(`Failed to update news item: ${error.message}`);
   }
 }
 
-export async function deleteNews(id: string, imagePath?: string | null): Promise<void> {
+export async function deleteNews(id: string, imagePaths?: string[] | null): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
   }
 
   const target = parseStorageTarget(supabaseNewsImagesBucket, 'news');
 
-  if (imagePath) {
-    await deleteStorageFile(target.bucket, imagePath);
+  for (const path of uniqueImagePaths(imagePaths ?? [])) {
+    await deleteStorageFile(target.bucket, path);
   }
 
   const { error } = await supabase.from(supabaseNewsTable).delete().eq('id', id);

@@ -259,7 +259,7 @@ export function Messages({ advisorId }: MessagesProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-1">
                       <h3 className="font-semibold text-sm text-must-text-primary truncate">
-                        {getConversationName(conversation)} ({getConversationIdLabel(conversation)})
+                        {getConversationName(conversation)}
                       </h3>
                       <span className="text-xs text-must-text-secondary shrink-0">
                         {formatTimeLabel(conversation.last_message_at)}
