@@ -110,12 +110,12 @@ export function Sidebar({
         key={item.id}
         type="button"
         onClick={() => onPageChange(item.id)}
-        className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors group relative ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
+        className={`w-full flex items-center justify-start py-3 px-3 rounded-lg transition-colors group relative ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
         title={collapsed ? item.label : undefined}
       >
         {isActive ? <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-must-green rounded-r-full" /> : null}
-        {!collapsed ? <span className="font-medium text-base whitespace-nowrap mr-3">{item.label}</span> : null}
         <Icon className={`w-6 h-6 flex-shrink-0 ${isActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : ''}`} />
+        {!collapsed ? <span className="font-medium text-base whitespace-nowrap ml-3">{item.label}</span> : null}
       </button>
     );
   }
@@ -129,24 +129,24 @@ export function Sidebar({
         <button
           type="button"
           onClick={() => onPageChange(items[0].id)}
-          className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors relative ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
+          className={`w-full flex items-center justify-start py-3 px-3 rounded-lg transition-colors relative ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
           title={collapsed ? title : undefined}
         >
           {isActive ? <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-must-green rounded-r-full" /> : null}
 
+          <Icon className={`w-6 h-6 flex-shrink-0 ${isActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : ''}`} />
+
           {!collapsed ? (
             <>
-              <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 ml-3">
+              <span className="font-medium text-base whitespace-nowrap ml-3">{title}</span>
+              <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 ml-auto">
                 <ChevronDownIcon className="w-5 h-5" />
               </span>
-              <span className="font-medium text-base whitespace-nowrap mr-3">{title}</span>
             </>
           ) : null}
-
-          <Icon className={`w-6 h-6 flex-shrink-0 ${isActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : ''}`} />
         </button>
 
-        <div className={`hidden group-hover:block ${collapsed ? 'absolute right-full top-0 mr-2 w-[17rem]' : 'pr-4 pl-1 pt-1'}`}>
+        <div className={`hidden group-hover:block ${collapsed ? 'absolute left-full top-0 ml-2 w-[17rem]' : 'pl-4 pr-1 pt-1'}`}>
           <div className="rounded-lg border border-must-border bg-must-surface shadow-lg md:shadow-none">
             <div className="py-2">
               {items.map((item) => {
@@ -158,10 +158,10 @@ export function Sidebar({
                     key={item.id}
                     type="button"
                     onClick={() => onPageChange(item.id)}
-                    className={`w-full flex items-center justify-end gap-3 px-3 py-2.5 text-base transition-colors ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
+                    className={`w-full flex items-center justify-start gap-3 px-3 py-2.5 text-base transition-colors ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
                   >
-                    <span className="whitespace-nowrap text-right">{item.label}</span>
                     <SubIcon className={`w-5 h-5 flex-shrink-0 ${isSubActive ? 'text-must-green' : 'text-slate-400'}`} />
+                    <span className="whitespace-nowrap text-left">{item.label}</span>
                   </button>
                 );
               })}
@@ -173,7 +173,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className={`bg-must-surface border-l border-must-border transition-all duration-300 flex flex-col relative z-40 ${collapsed ? 'w-[80px]' : 'w-[288px]'} hidden md:flex`}>
+    <aside className={`bg-must-surface border-r border-must-border transition-all duration-300 flex flex-col relative z-40 ${collapsed ? 'w-[80px]' : 'w-[288px]'} hidden md:flex`}>
       <div className="flex-1 py-6 overflow-y-auto scrollbar-custom">
         <nav className="space-y-1 px-3">
           {renderGroup('Home', HouseIcon, homeItems)}
@@ -192,7 +192,7 @@ export function Sidebar({
           onClick={onToggleCollapse}
           className="w-full flex items-center justify-center p-2 rounded-lg text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
         >
-          {collapsed ? <ChevronLeftIcon className="w-6 h-6" /> : <ChevronRightIcon className="w-6 h-6" />}
+          {collapsed ? <ChevronRightIcon className="w-6 h-6" /> : <ChevronLeftIcon className="w-6 h-6" />}
         </button>
       </div>
     </aside>

@@ -50,7 +50,7 @@ export function DashboardLayout({
         isLoggingOut={isLoggingOut} />
 
 
-      <div className="flex flex-1 overflow-hidden flex-row-reverse">
+      <div className="flex flex-1 overflow-hidden flex-row">
         <Sidebar
           activePage={activePage}
           onPageChange={onPageChange}

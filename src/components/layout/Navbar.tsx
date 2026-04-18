@@ -45,10 +45,34 @@ export function Navbar({
   'AD';
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0D1B3E] text-white shadow-md">
+    <header dir="ltr" className="sticky top-0 z-50 bg-[#0D1B3E] text-white shadow-md">
       <div className="grid min-h-[88px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-        <div className="w-9 h-9 rounded-full bg-must-green text-white flex items-center justify-center text-sm font-bold border-2 border-white/20 mr-1 overflow-hidden">
+      <div className="flex items-center gap-4 justify-start">
+        <button
+          onClick={onToggleSidebar}
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
+          aria-label="Toggle Sidebar">
+
+          <MenuIcon className="w-5 h-5" />
+        </button>
+
+      </div>
+
+      <div className="flex items-center justify-center">
+        <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-4 py-2">
+          <img
+            src="/assists/1740307130_140_87669_group1000004290.svg"
+            alt="MISR UNIVERSITY Logo"
+            className="h-16 w-auto object-contain sm:h-20" />
+          <div className="text-center leading-tight">
+            <p className="text-[0.68rem] uppercase tracking-[0.32em] text-white/70">Admin Dashboard</p>
+            <h1 className="text-sm font-semibold text-white sm:text-xl">International Students Affairs Portal</h1>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-row-reverse items-center gap-2 sm:gap-3 min-w-0 justify-start">
+        <div className="w-9 h-9 rounded-full bg-must-green text-white flex items-center justify-center text-sm font-bold border-2 border-white/20 ml-1 overflow-hidden">
           {userAvatarUrl ?
           <img src={userAvatarUrl} alt="Advisor avatar" className="w-full h-full object-cover" /> :
           initials}
@@ -79,7 +103,7 @@ export function Navbar({
           </button>
 
           {isNotificationsOpen ?
-          <div className="absolute left-0 mt-2 w-72 rounded-lg border border-must-border bg-must-surface shadow-lg z-30 text-must-text-primary">
+          <div className="absolute right-0 mt-2 w-72 rounded-lg border border-must-border bg-must-surface shadow-lg z-30 text-must-text-primary">
               <div className="px-4 py-3 border-b border-must-border">
                 <p className="text-sm font-semibold">Message Notifications</p>
                 <p className="text-xs text-must-text-secondary mt-1">
@@ -111,30 +135,6 @@ export function Navbar({
           <MoonIcon className="w-5 h-5" />
           }
         </button>
-      </div>
-
-      <div className="flex items-center justify-center">
-        <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-4 py-2">
-          <img
-            src="/assists/1740307130_140_87669_group1000004290.svg"
-            alt="MISR UNIVERSITY Logo"
-            className="h-16 w-auto object-contain sm:h-20" />
-          <div className="text-center leading-tight">
-            <p className="text-[0.68rem] uppercase tracking-[0.32em] text-white/70">Admin Dashboard</p>
-            <h1 className="text-sm font-semibold text-white sm:text-xl">International Students Affairs Portal</h1>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4 justify-end">
-        <button
-          onClick={onToggleSidebar}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
-          aria-label="Toggle Sidebar">
-
-          <MenuIcon className="w-5 h-5" />
-        </button>
-
       </div>
       </div>
     </header>);
