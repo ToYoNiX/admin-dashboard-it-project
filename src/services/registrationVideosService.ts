@@ -29,7 +29,7 @@ export interface RegistrationVideoInput {
   youtubeUrl: string;
 }
 
-const VIDEO_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+const SOURCE_FILE_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'application/pdf'];
 
 function assertInput(input: RegistrationVideoInput): void {
   if (!input.title.trim()) {
@@ -45,11 +45,11 @@ function assertInput(input: RegistrationVideoInput): void {
   }
 }
 
-function validateVideoFile(file: File): void {
+function validateSourceFile(file: File): void {
   validateFile(file, {
     maxSizeInMb: 150,
-    allowedMimeTypes: VIDEO_MIME_TYPES,
-    label: 'Registration video'
+    allowedMimeTypes: SOURCE_FILE_MIME_TYPES,
+    label: 'Registration source file'
   });
 }
 
@@ -57,9 +57,9 @@ function isMissingTable(error: { code?: string; message?: string }): boolean {
   return error.code === 'PGRST205' || error.code === '42P01' || /registration_videos/i.test(error.message ?? '');
 }
 
-async function uploadRegistrationVideo(file: File, recordId: string): Promise<string> {
+async function uploadRegistrationSource(file: File, recordId: string): Promise<string> {
   const target = parseStorageTarget(supabaseResourcesFilesBucket, 'registration-videos');
-  return uploadFileToStorage(file, target, recordId, 'video');
+  return uploadFileToStorage(file, target, recordId, 'source');
 }
 
 export async function listRegistrationVideos(): Promise<RegistrationVideoRecord[]> {
@@ -98,10 +98,10 @@ export async function createRegistrationVideo(
 
   if (input.sourceType === 'upload') {
     if (!videoFile) {
-      throw new Error('Please upload a video file.');
+      throw new Error('Please upload a source file.');
     }
-    validateVideoFile(videoFile);
-    videoPath = await uploadRegistrationVideo(videoFile, id);
+    validateSourceFile(videoFile);
+    videoPath = await uploadRegistrationSource(videoFile, id);
   } else {
     youtubeUrl = input.youtubeUrl.trim();
   }

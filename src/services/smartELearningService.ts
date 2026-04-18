@@ -29,7 +29,7 @@ export interface SmartELearningInput {
   youtubeUrl: string;
 }
 
-const VIDEO_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+const SOURCE_FILE_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'application/pdf'];
 
 function assertInput(input: SmartELearningInput): void {
   if (!input.title.trim()) {
@@ -45,11 +45,11 @@ function assertInput(input: SmartELearningInput): void {
   }
 }
 
-function validateVideoFile(file: File): void {
+function validateSourceFile(file: File): void {
   validateFile(file, {
     maxSizeInMb: 150,
-    allowedMimeTypes: VIDEO_MIME_TYPES,
-    label: 'Smart E-Learning video'
+    allowedMimeTypes: SOURCE_FILE_MIME_TYPES,
+    label: 'Smart E-Learning source file'
   });
 }
 
@@ -57,9 +57,9 @@ function isMissingTable(error: { code?: string; message?: string }): boolean {
   return error.code === 'PGRST205' || error.code === '42P01' || /smart_elearning_videos/i.test(error.message ?? '');
 }
 
-async function uploadVideo(file: File, recordId: string): Promise<string> {
+async function uploadSource(file: File, recordId: string): Promise<string> {
   const target = parseStorageTarget(supabaseResourcesFilesBucket, 'smart-elearning');
-  return uploadFileToStorage(file, target, recordId, 'video');
+  return uploadFileToStorage(file, target, recordId, 'source');
 }
 
 export async function listSmartELearningVideos(): Promise<SmartELearningRecord[]> {
@@ -95,10 +95,10 @@ export async function createSmartELearningVideo(input: SmartELearningInput, vide
 
   if (input.sourceType === 'upload') {
     if (!videoFile) {
-      throw new Error('Please upload a video file.');
+      throw new Error('Please upload a source file.');
     }
-    validateVideoFile(videoFile);
-    videoPath = await uploadVideo(videoFile, id);
+    validateSourceFile(videoFile);
+    videoPath = await uploadSource(videoFile, id);
   } else {
     youtubeUrl = input.youtubeUrl.trim();
   }
