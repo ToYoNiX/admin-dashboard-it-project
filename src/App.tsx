@@ -16,6 +16,12 @@ import { Registration } from './pages/Registration';
 import { SmartELearning } from './pages/SmartELearning';
 import { HonorList } from './pages/HonorList';
 import { StudentResources } from './pages/StudentResources';
+import { AboutSector } from './pages/AboutSector';
+import { Mission } from './pages/Mission';
+import { Vision } from './pages/Vision';
+import { SectorPlan } from './pages/SectorPlan';
+import { MustFacilities } from './pages/MustFacilities';
+import { InternationalStudentsHandbook } from './pages/InternationalStudentsHandbook';
 import { Announcements } from './pages/Announcements';
 import { Reports } from './pages/Reports';
 import { Messages } from './pages/Messages';
@@ -225,6 +231,10 @@ export function App() {
         return <HonorList />;
       case 'Student Resources':
         return <StudentResources />;
+      case 'Must Facilities':
+        return <MustFacilities />;
+      case 'International Students Handbook':
+        return <InternationalStudentsHandbook />;
       case 'Announcements':
         return <Announcements />;
       case 'Reports':
