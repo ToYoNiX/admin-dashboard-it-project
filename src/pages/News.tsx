@@ -27,7 +27,8 @@ interface NewsFormErrors {
 const initialForm: NewsInput = {
   title: '',
   description: '',
-  href: ''
+  href: '',
+  links: ['']
 };
 
 function getFileName(path: string): string {
@@ -46,6 +47,19 @@ function getRecordImagePaths(record: Pick<NewsRecord, 'image_url' | 'image_urls'
   }
 
   return record.image_url ? [record.image_url] : [];
+}
+
+function getRecordLinks(record: Pick<NewsRecord, 'href' | 'link_urls'> | null): string[] {
+  if (!record) {
+    return [];
+  }
+
+  const links = Array.isArray(record.link_urls) ? record.link_urls : [];
+  if (links.length > 0) {
+    return links;
+  }
+
+  return record.href ? [record.href] : [];
 }
 
 export function News() {
@@ -108,8 +122,8 @@ export function News() {
       errors.description = 'Description is required.';
     }
 
-    if (form.href && !/^https?:\/\//i.test(form.href)) {
-      errors.href = 'Please enter a valid URL starting with http:// or https://';
+    if (form.links.some((link) => link.trim() && !/^https?:\/\//i.test(link.trim()))) {
+      errors.href = 'Please enter valid URLs starting with http:// or https://';
     }
 
     setFormErrors(errors);
@@ -130,7 +144,8 @@ export function News() {
     setForm({
       title: record.title,
       description: record.description,
-      href: record.href ?? ''
+      href: record.href ?? '',
+      links: getRecordLinks(record)
     });
     setFormErrors({});
     setSubmitError('');
@@ -224,13 +239,54 @@ export function News() {
               </div>
 
               <Input
-                label="Link (Optional)"
+                label="Primary Link (Optional)"
                 type="url"
                 value={form.href}
                 onChange={(event) => setForm((prev) => ({ ...prev, href: event.target.value }))}
                 error={formErrors.href}
                 placeholder="https://example.com"
               />
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-must-text-primary">Additional Links</label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setForm((prev) => ({ ...prev, links: [...prev.links, ''] }))}
+                  >
+                    Add Link
+                  </Button>
+                </div>
+                {form.links.map((link, index) => (
+                  <div key={`news-link-${index + 1}`} className="flex gap-2">
+                    <Input
+                      type="url"
+                      value={link}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          links: prev.links.map((value, linkIndex) => linkIndex === index ? event.target.value : value)
+                        }))
+                      }
+                      placeholder={`https://example.com/link-${index + 1}`}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          links: prev.links.length === 1 ? [''] : prev.links.filter((_, linkIndex) => linkIndex !== index)
+                        }))
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-must-text-primary mb-2">Images (Optional)</label>
@@ -410,16 +466,21 @@ export function News() {
                               </div>
                             ) : null}
 
-                            {record.href ? (
-                              <a
-                                href={record.href}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-3 inline-flex items-center gap-1 text-sm text-must-green hover:underline"
-                              >
-                                <ExternalLinkIcon className="w-4 h-4" />
-                                Open link
-                              </a>
+                            {getRecordLinks(record).length > 0 ? (
+                              <div className="mt-3 flex flex-col gap-2">
+                                {getRecordLinks(record).map((link, index) => (
+                                  <a
+                                    key={`${record.id}-link-${index + 1}`}
+                                    href={link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-sm text-must-green hover:underline"
+                                  >
+                                    <ExternalLinkIcon className="w-4 h-4" />
+                                    Open link {index + 1}
+                                  </a>
+                                ))}
+                              </div>
                             ) : null}
                           </div>
                         </div>

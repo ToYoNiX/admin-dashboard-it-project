@@ -47,6 +47,16 @@ export const supabaseFacilitiesTable =
   import.meta.env.VITE_SUPABASE_FACILITIES_TABLE || 'facilities_sections';
 export const supabaseHomeSectionsTable =
   import.meta.env.VITE_SUPABASE_HOME_SECTIONS_TABLE || 'home_sections';
+export const supabaseImportantLinksTable =
+  import.meta.env.VITE_SUPABASE_IMPORTANT_LINKS_TABLE || 'important_links';
+export const supabaseContactTable =
+  import.meta.env.VITE_SUPABASE_CONTACT_TABLE || 'contact_information';
+export const supabaseAdmissionTable =
+  import.meta.env.VITE_SUPABASE_ADMISSION_TABLE || 'admission_sections';
+export const supabaseInternationalHandbookTable =
+  import.meta.env.VITE_SUPABASE_INTERNATIONAL_HANDBOOK_TABLE || 'international_handbook_documents';
+export const supabaseContactSubmissionsTable =
+  import.meta.env.VITE_SUPABASE_CONTACT_SUBMISSIONS_TABLE || 'contact_submissions';
 
 export const supabaseNewsImagesBucket =
   import.meta.env.VITE_SUPABASE_NEWS_IMAGES_BUCKET || 'news-images';
@@ -72,6 +82,12 @@ export const supabaseHomeImagesBucket =
   import.meta.env.VITE_SUPABASE_HOME_IMAGES_BUCKET || 'home-images';
 export const supabaseHomeFilesBucket =
   import.meta.env.VITE_SUPABASE_HOME_FILES_BUCKET || 'home-files';
+export const supabaseImportantLinksImagesBucket =
+  import.meta.env.VITE_SUPABASE_IMPORTANT_LINKS_IMAGES_BUCKET || 'important-links-images';
+export const supabaseAdmissionFilesBucket =
+  import.meta.env.VITE_SUPABASE_ADMISSION_FILES_BUCKET || 'admission-files';
+export const supabaseInternationalHandbookBucket =
+  import.meta.env.VITE_SUPABASE_INTERNATIONAL_HANDBOOK_BUCKET || 'international-handbook-files';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 

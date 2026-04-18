@@ -14,17 +14,11 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { supabaseHonorListBucket } from '../lib/supabase';
-import {
-  getHonorListDocument,
-  upsertHonorListDocument,
-  type HonorListRecord
-} from '../services/honorListService';
-import { getPublicFileUrl } from '../services/storageUtils';
 import {
   replaceAllStudents,
   createStudent,
   listStudents,
+  updateStudentStatus,
   studentMajors,
   studentStatuses,
   type StudentInput,
@@ -192,14 +186,9 @@ export function InternationalStudentsData({ onNavigateToMessages }: Internationa
   const [formValues, setFormValues] = useState<StudentInput>(DEFAULT_FORM_VALUES);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
-  const [honorListRecord, setHonorListRecord] = useState<HonorListRecord | null>(null);
-  const [selectedHonorListFile, setSelectedHonorListFile] = useState<File | null>(null);
-  const [isHonorListLoading, setIsHonorListLoading] = useState(true);
-  const [isHonorListSaving, setIsHonorListSaving] = useState(false);
-  const [honorListError, setHonorListError] = useState<string | null>(null);
-  const [honorListSuccess, setHonorListSuccess] = useState<string | null>(null);
   const [selectedImportFile, setSelectedImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [statusSavingStudentId, setStatusSavingStudentId] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement | null>(null);
 
   const levelOptions = useMemo(() => {
@@ -271,7 +260,6 @@ const trimUntilCapital = (str : String) => {
 
   useEffect(() => {
     loadStudents();
-    loadHonorList();
   }, []);
 
   const loadStudents = async () => {
@@ -286,48 +274,6 @@ const trimUntilCapital = (str : String) => {
       setFeedbackError(message);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadHonorList = async () => {
-    setIsHonorListLoading(true);
-    setHonorListError(null);
-
-    try {
-      const data = await getHonorListDocument();
-      setHonorListRecord(data);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load honor list.';
-      setHonorListError(message);
-    } finally {
-      setIsHonorListLoading(false);
-    }
-  };
-
-  const handleUploadHonorList = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!selectedHonorListFile) {
-      setHonorListError('Please choose a PDF file first.');
-      return;
-    }
-
-    setIsHonorListSaving(true);
-    setHonorListError(null);
-    setHonorListSuccess(null);
-
-    try {
-      await upsertHonorListDocument(selectedHonorListFile, {
-        existingFilePath: honorListRecord?.file_path
-      });
-      setSelectedHonorListFile(null);
-      setHonorListSuccess(honorListRecord ? 'Honor list updated successfully.' : 'Honor list uploaded successfully.');
-      await loadHonorList();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to upload honor list PDF.';
-      setHonorListError(message);
-    } finally {
-      setIsHonorListSaving(false);
     }
   };
 
@@ -390,6 +336,38 @@ const trimUntilCapital = (str : String) => {
       setFeedbackError(message);
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleStatusChange = async (
+    studentId: string,
+    nextStatus: (typeof studentStatuses)[number]
+  ) => {
+    setFeedbackError(null);
+    setFeedbackSuccess(null);
+    setStatusSavingStudentId(studentId);
+
+    const previousStudents = students;
+    setStudents((currentStudents) =>
+      currentStudents.map((student) =>
+        student.student_id === studentId ?
+          {
+            ...student,
+            status: nextStatus
+          } :
+          student
+      )
+    );
+
+    try {
+      await updateStudentStatus(studentId, nextStatus);
+      setFeedbackSuccess(`Student status updated to ${nextStatus}.`);
+    } catch (error) {
+      setStudents(previousStudents);
+      const message = error instanceof Error ? error.message : 'Failed to update student status.';
+      setFeedbackError(message);
+    } finally {
+      setStatusSavingStudentId(null);
     }
   };
 
@@ -493,24 +471,13 @@ const trimUntilCapital = (str : String) => {
     onNavigateToMessages?.();
   };
 
-  const honorListFileUrl = getPublicFileUrl(supabaseHonorListBucket, honorListRecord?.file_path);
-
-  const honorListFileName = useMemo(() => {
-    if (!honorListRecord?.file_path) {
-      return null;
-    }
-
-    const segments = honorListRecord.file_path.split('/');
-    return segments[segments.length - 1] || honorListRecord.file_path;
-  }, [honorListRecord]);
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-must-text-primary">International Students Data</h1>
           <p className="text-sm text-must-text-secondary mt-1 max-w-2xl">
-            Manage the student roster, honor list, and analytics table. Each Excel import clears existing
+            Manage the student roster and analytics table. Each Excel import clears existing
             records and loads only what is in the new sheet.
           </p>
         </div>
@@ -625,81 +592,6 @@ const trimUntilCapital = (str : String) => {
           {feedbackSuccess}
         </Card>
       }
-
-      <Card className="p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <FileTextIcon className="w-5 h-5 text-must-green" />
-          <h2 className="text-lg font-semibold text-must-text-primary">Honor List PDF</h2>
-        </div>
-
-        {isHonorListLoading ?
-        <p className="text-sm text-must-text-secondary">Loading honor list...</p> :
-        <div className="space-y-2 text-sm">
-            <p className="text-must-text-secondary">
-              {honorListRecord ? 'Latest Honor List' : 'No honor list uploaded yet.'}
-            </p>
-            {honorListFileName &&
-            <p className="text-must-text-primary break-all">
-                File: {trimUntilCapital(honorListFileName)}
-              </p>
-            }
-          </div>
-        }
-
-        <form className="space-y-3" onSubmit={handleUploadHonorList}>
-          <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
-            <UploadIcon className="w-4 h-4" />
-            <span className="text-sm">Choose honor list PDF</span>
-            <input
-              type="file"
-              className="hidden"
-              accept="application/pdf"
-              onChange={(event) => {
-                setSelectedHonorListFile(event.target.files?.[0] ?? null);
-                setHonorListError(null);
-                setHonorListSuccess(null);
-              }} />
-
-          </label>
-
-          {selectedHonorListFile &&
-          <p className="text-xs text-must-text-secondary break-all">
-              Selected: {selectedHonorListFile.name}
-            </p>
-          }
-
-          {honorListError &&
-          <p className="text-sm text-red-500">{honorListError}</p>
-          }
-          {honorListSuccess &&
-          <p className="text-sm text-green-600">{honorListSuccess}</p>
-          }
-
-          <div className="flex flex-wrap gap-3">
-            <Button
-              type="submit"
-              disabled={isHonorListSaving || !selectedHonorListFile}
-              icon={<UploadIcon className="w-4 h-4" />}>
-
-              {isHonorListSaving ? 'Saving...' : honorListRecord ? 'Replace PDF' : 'Upload PDF'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!honorListFileUrl}
-              icon={<DownloadIcon className="w-4 h-4" />}
-              onClick={() => {
-                if (!honorListFileUrl) {
-                  return;
-                }
-                window.open(honorListFileUrl, '_blank', 'noopener,noreferrer');
-              }}>
-
-              Download Current PDF
-            </Button>
-          </div>
-        </form>
-      </Card>
 
       <Card className="p-4">
         <div className="mb-4 rounded-lg border border-dashed border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4 text-sm text-must-text-secondary">
@@ -904,12 +796,24 @@ const trimUntilCapital = (str : String) => {
                     {formatGpa(student.gpa)}
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${student.status === 'discontinued' ?
-                      'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'}`}>
-                      {student.status === 'discontinued' ? 'Discontinued' : 'Active'}
-                    </span>
+                    <select
+                      value={student.status}
+                      disabled={statusSavingStudentId === student.student_id}
+                      onChange={(event) => {
+                        void handleStatusChange(
+                          student.student_id,
+                          event.target.value as (typeof studentStatuses)[number]
+                        );
+                      }}
+                      className={`min-w-[140px] rounded-full border px-3 py-1.5 text-xs font-medium outline-none transition-colors ${student.status === 'discontinued' ?
+                        'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                        'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300'} ${statusSavingStudentId === student.student_id ? 'opacity-70' : ''}`}>
+                      {studentStatuses.map((status) =>
+                        <option key={status} value={status}>
+                          {status === 'discontinued' ? 'Discontinued' : 'Active'}
+                        </option>
+                      )}
+                    </select>
                   </td>
                   <td className="px-6 py-4 text-sm text-right space-x-2">
                     <button
