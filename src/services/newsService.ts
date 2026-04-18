@@ -16,6 +16,7 @@ export interface NewsRecord {
   title: string;
   description: string;
   href: string | null;
+  link_urls: string[] | null;
   image_url: string | null;
   image_urls: string[] | null;
   is_published: boolean;
@@ -28,6 +29,7 @@ export interface NewsInput {
   title: string;
   description: string;
   href: string;
+  links: string[];
 }
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -53,6 +55,11 @@ function getPrimaryImagePath(paths: string[]): string | null {
 }
 
 function normalizeNewsRecord(record: Record<string, unknown>): NewsRecord {
+  const arrayLinks = Array.isArray(record.link_urls)
+    ? record.link_urls.filter((link): link is string => typeof link === 'string')
+    : [];
+  const singleLink = typeof record.href === 'string' ? record.href : null;
+  const normalizedLinks = Array.from(new Set([...arrayLinks, ...(singleLink ? [singleLink] : [])].filter(Boolean)));
   const arrayPaths = Array.isArray(record.image_urls)
     ? record.image_urls.filter((path): path is string => typeof path === 'string')
     : [];
@@ -62,6 +69,8 @@ function normalizeNewsRecord(record: Record<string, unknown>): NewsRecord {
 
   return {
     ...(record as NewsRecord),
+    link_urls: normalizedLinks.length > 0 ? normalizedLinks : null,
+    href: normalizedLinks[0] ?? null,
     image_urls: imagePaths.length > 0 ? imagePaths : null,
     image_url: getPrimaryImagePath(imagePaths)
   };
@@ -75,6 +84,10 @@ function missingImageUrlsColumnMessage(): string {
   return 'The news table is missing the image_urls column. Run the latest SQL setup script to enable multi-image news support.';
 }
 
+function isMissingLinkUrlsColumn(error: { code?: string; message?: string }): boolean {
+  return error.code === '42703' && /link_urls/i.test(error.message ?? '');
+}
+
 function assertNewsInput(input: NewsInput): void {
   if (!input.title.trim()) {
     throw new Error('Title is required.');
@@ -82,8 +95,11 @@ function assertNewsInput(input: NewsInput): void {
   if (!input.description.trim()) {
     throw new Error('Description is required.');
   }
-  if (input.href && !/^https?:\/\//i.test(input.href)) {
-    throw new Error('Link must be a valid URL starting with http:// or https://');
+  const links = input.links.length > 0 ? input.links : input.href ? [input.href] : [];
+  for (const link of links) {
+    if (link && !/^https?:\/\//i.test(link)) {
+      throw new Error('Each link must be a valid URL starting with http:// or https://');
+    }
   }
 }
 
@@ -132,7 +148,8 @@ export async function createNews(input: NewsInput, imageFiles?: File[] | null): 
     id,
     title: input.title.trim(),
     description: input.description.trim(),
-    href: input.href.trim() || null,
+    href: input.links[0]?.trim() || input.href.trim() || null,
+    link_urls: input.links.length > 0 ? input.links.map((link) => link.trim()).filter(Boolean) : input.href.trim() ? [input.href.trim()] : null,
     image_url: getPrimaryImagePath(imagePaths),
     image_urls: imagePaths.length > 0 ? imagePaths : null,
     is_published: false,
@@ -144,6 +161,9 @@ export async function createNews(input: NewsInput, imageFiles?: File[] | null): 
   if (error) {
     if (isMissingImageUrlsColumn(error)) {
       throw new Error(missingImageUrlsColumnMessage());
+    }
+    if (isMissingLinkUrlsColumn(error)) {
+      throw new Error('The news table is missing the link_urls column. Run the latest SQL setup script to enable multi-link news support.');
     }
     throw new Error(`Failed to create news item: ${error.message}`);
   }
@@ -194,7 +214,8 @@ export async function updateNews(
     .update({
       title: input.title.trim(),
       description: input.description.trim(),
-      href: input.href.trim() || null,
+      href: input.links[0]?.trim() || input.href.trim() || null,
+      link_urls: input.links.length > 0 ? input.links.map((link) => link.trim()).filter(Boolean) : input.href.trim() ? [input.href.trim()] : null,
       image_url: getPrimaryImagePath(nextImagePaths),
       image_urls: nextImagePaths.length > 0 ? nextImagePaths : null,
       updated_at: new Date().toISOString()
@@ -204,6 +225,9 @@ export async function updateNews(
   if (error) {
     if (isMissingImageUrlsColumn(error)) {
       throw new Error(missingImageUrlsColumnMessage());
+    }
+    if (isMissingLinkUrlsColumn(error)) {
+      throw new Error('The news table is missing the link_urls column. Run the latest SQL setup script to enable multi-link news support.');
     }
     throw new Error(`Failed to update news item: ${error.message}`);
   }

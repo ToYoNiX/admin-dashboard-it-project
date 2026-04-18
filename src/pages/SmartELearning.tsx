@@ -31,7 +31,7 @@ const initialForm: SmartELearningInput = {
 type TabMode = 'add' | 'view';
 
 function labelizeSource(type: string): string {
-  return type === 'youtube' ? 'YouTube Link' : 'Upload Video';
+  return type === 'youtube' ? 'YouTube Link' : 'Upload File';
 }
 
 export function SmartELearning() {
@@ -141,7 +141,7 @@ export function SmartELearning() {
         <Card className="max-w-3xl">
           <CardHeader className="flex flex-row items-center gap-2">
             <PlayCircleIcon className="w-5 h-5 text-must-green" />
-            <h2 className="text-lg font-semibold text-must-text-primary">Add Smart E-Learning Video</h2>
+            <h2 className="text-lg font-semibold text-must-text-primary">Add Smart E-Learning Source</h2>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -149,12 +149,12 @@ export function SmartELearning() {
                 label="Title"
                 value={form.title}
                 onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Enter video title"
+                placeholder="Enter source title"
                 required
               />
 
               <div>
-                <label className="block text-sm font-medium text-must-text-primary mb-1">Video Source</label>
+                <label className="block text-sm font-medium text-must-text-primary mb-1">Source</label>
                 <select
                   value={form.sourceType}
                   onChange={(event) => setForm((prev) => ({ ...prev, sourceType: event.target.value as SmartELearningInput['sourceType'] }))}
@@ -179,20 +179,20 @@ export function SmartELearning() {
                 />
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-must-text-primary mb-2">Video File</label>
+                  <label className="block text-sm font-medium text-must-text-primary mb-2">Source File</label>
                   <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
                     <UploadIcon className="w-4 h-4" />
-                    <span className="text-sm">Choose video</span>
+                    <span className="text-sm">Choose video or PDF</span>
                     <input
                       type="file"
-                      accept="video/mp4,video/webm,video/quicktime"
+                      accept="video/mp4,video/webm,video/quicktime,application/pdf,.pdf"
                       className="hidden"
                       onChange={(event) => setSelectedVideoFile(event.target.files?.[0] ?? null)}
                       required
                     />
                   </label>
                   <p className="mt-2 text-xs text-must-text-secondary">
-                    {selectedVideoFile ? selectedVideoFile.name : 'No video selected'}
+                    {selectedVideoFile ? selectedVideoFile.name : 'No file selected'}
                   </p>
                 </div>
               )}
@@ -201,7 +201,7 @@ export function SmartELearning() {
 
               <div className="flex gap-3 pt-1">
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Add Video'}
+                  {isSaving ? 'Saving...' : 'Add Source'}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm} disabled={isSaving}>
                   Clear
@@ -231,13 +231,13 @@ export function SmartELearning() {
 
           {isLoading ? (
             <Card>
-              <CardContent className="p-6 text-sm text-must-text-secondary">Loading smart e-learning videos...</CardContent>
+              <CardContent className="p-6 text-sm text-must-text-secondary">Loading smart e-learning sources...</CardContent>
             </Card>
           ) : null}
 
           {!isLoading && filteredRecords.length === 0 ? (
             <Card>
-              <CardContent className="p-6 text-sm text-must-text-secondary">No smart e-learning videos found yet.</CardContent>
+              <CardContent className="p-6 text-sm text-must-text-secondary">No smart e-learning sources found yet.</CardContent>
             </Card>
           ) : null}
 
@@ -297,7 +297,7 @@ export function SmartELearning() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 totalItems={filteredRecords.length}
-                itemLabel="videos"
+                itemLabel="sources"
                 onPageChange={setCurrentPage}
               />
             </>
@@ -307,7 +307,7 @@ export function SmartELearning() {
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
-        title="Delete Smart E-Learning Video"
+        title="Delete Smart E-Learning Source"
         message={`Delete "${deleteTarget?.title ?? ''}"? This action cannot be undone.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"

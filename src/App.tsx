@@ -13,13 +13,22 @@ import { Activities } from './pages/Activities';
 import { Gallery } from './pages/Gallery';
 import { AdvisorResources } from './pages/AdvisorResources';
 import { AcademicAdvising } from './pages/AcademicAdvising';
+import { Admission } from './pages/Admission';
 import { Registration } from './pages/Registration';
 import { SmartELearning } from './pages/SmartELearning';
 import { HonorList } from './pages/HonorList';
 import { StudentResources } from './pages/StudentResources';
+import { AboutSector } from './pages/AboutSector';
+import { Mission } from './pages/Mission';
+import { Vision } from './pages/Vision';
+import { SectorPlan } from './pages/SectorPlan';
+import { MustFacilities } from './pages/MustFacilities';
+import { InternationalStudentsHandbook } from './pages/InternationalStudentsHandbook';
+import { ImportantLinks } from './pages/ImportantLinks';
 import { Announcements } from './pages/Announcements';
 import { Reports } from './pages/Reports';
 import { Messages } from './pages/Messages';
+import { ContactCenter } from './pages/ContactCenter';
 import { Documents } from './pages/Documents';
 import { Settings } from './pages/Settings';
 import { ManageAdvisors } from './pages/ManageAdvisors';
@@ -218,6 +227,14 @@ export function App() {
 
   const renderPage = () => {
     switch (activePage) {
+      case 'About Sector':
+        return <AboutSector />;
+      case 'Mission':
+        return <Mission />;
+      case 'Vision':
+        return <Vision />;
+      case 'Sector Plan':
+        return <SectorPlan />;
       case 'Staff':
         return <Staff />;
       case 'News':
@@ -240,6 +257,8 @@ export function App() {
         return <AdvisorResources />;
       case 'Academic Advising':
         return <AcademicAdvising />;
+      case 'Admission':
+        return <Admission />;
       case 'Registration':
         return <Registration />;
       case 'Smart E-Learning':
@@ -248,6 +267,12 @@ export function App() {
         return <HonorList />;
       case 'Student Resources':
         return <StudentResources />;
+      case 'Must Facilities':
+        return <MustFacilities />;
+      case 'International Students Handbook':
+        return <InternationalStudentsHandbook />;
+      case 'Important Links':
+        return <ImportantLinks />;
       case 'Announcements':
         return <Announcements />;
       case 'Reports':
@@ -256,6 +281,8 @@ export function App() {
         return <InternationalStudentsData onNavigateToMessages={() => setActivePage('Messages')} />;
       case 'Messages':
         return <Messages advisorId={session?.user.id ?? ''} />;
+      case 'Contact Center':
+        return <ContactCenter isSuperAdmin={profile?.is_super_admin ?? false} />;
       case 'Manage Advisors':
         return profile?.is_super_admin ? <ManageAdvisors /> : <Reports userName={userName} />;
       case 'Documents':
