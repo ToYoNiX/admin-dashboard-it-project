@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import type { AdvisorProfile } from './services/authService';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { Staff } from './pages/Staff';
 import { News } from './pages/News';
@@ -36,9 +37,27 @@ import { supabase } from './lib/supabase';
 import {
   getAdvisorProfile,
   signOut,
-  type AdvisorProfile } from
-'./services/authService';
+} from './services/authService';
+
 import { getUnreadStudentMessageCount } from './services/messagesService';
+
+const DEV_ENV = import.meta.env.VITE_DEV_ENV === 'true';
+
+const DEV_MOCK_SESSION = {
+  user: { id: 'dev-user-id', email: 'dev@localhost.dev' },
+} as unknown as Session;
+
+const DEV_MOCK_PROFILE: AdvisorProfile = {
+  id: 'dev-user-id',
+  email: 'dev@localhost.dev',
+  username: 'devuser',
+  full_name: 'Dev User',
+  avatar_url: null,
+  is_super_admin: true,
+  is_active: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
 
 export function App() {
   const isRegisterRoute = window.location.pathname.toLowerCase().startsWith('/register');
@@ -47,9 +66,9 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<AdvisorProfile | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(DEV_ENV ? DEV_MOCK_SESSION : null);
+  const [profile, setProfile] = useState<AdvisorProfile | null>(DEV_ENV ? DEV_MOCK_PROFILE : null);
+  const [isAuthLoading, setIsAuthLoading] = useState(!DEV_ENV);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -75,6 +94,8 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (DEV_ENV) return;
+
     const client = supabase;
 
     if (!client) {
@@ -146,6 +167,8 @@ export function App() {
   }, [notificationsStorageKey]);
 
   useEffect(() => {
+    if (DEV_ENV) return;
+
     if (!currentUserId) {
       setUnreadMessagesCount(0);
       return;
