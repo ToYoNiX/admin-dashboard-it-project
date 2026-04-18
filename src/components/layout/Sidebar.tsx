@@ -59,7 +59,7 @@ export function Sidebar({
   ];
 
   const academicsItems: MenuItem[] = [
-    { id: 'Staff', label: 'Staff', icon: BriefcaseIcon },
+    { id: 'Staff', label: 'Academic Staff', icon: BriefcaseIcon },
     { id: 'Study Plans', label: 'Educational Programs', icon: BookCopyIcon },
     { id: 'Academic Advising', label: 'Academic Advising', icon: GraduationCapIcon },
     { id: 'Registration', label: 'Registration', icon: ClipboardListIcon },
