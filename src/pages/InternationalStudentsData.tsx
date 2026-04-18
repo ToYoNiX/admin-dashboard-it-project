@@ -50,11 +50,10 @@ const DEFAULT_FORM_VALUES: StudentInput = {
 };
 
 const gpaRanges = [
-  { key: '0-1.99', label: '0.00 - 1.99', min: 0, max: 1.99 },
-  { key: '2-2.49', label: '2.00 - 2.49', min: 2, max: 2.49 },
-  { key: '2.5-2.99', label: '2.50 - 2.99', min: 2.5, max: 2.99 },
-  { key: '3-3.49', label: '3.00 - 3.49', min: 3, max: 3.49 },
-  { key: '3.5-4', label: '3.50 - 4.00', min: 3.5, max: 4 }
+  { key: 'excellent', label: 'Excellent', min: 3.6, max: 4 },
+  { key: 'very-good', label: 'Very Good', min: 2.7, max: 3.599999 },
+  { key: 'good', label: 'Good', min: 2, max: 2.699999 },
+  { key: 'pass', label: 'Pass', min: 0, max: 1.999999 }
 ];
 
 function normalizeMajor(value: string): StudentInput['major'] {
@@ -428,7 +427,7 @@ const trimUntilCapital = (str : String) => {
 
       context.fillStyle = '#16301e';
       context.font = '700 24px Arial';
-      context.fillText('Students by GPA Range', padding, 38);
+      context.fillText('Students by CGPA Classification', padding, 38);
 
       context.fillStyle = '#5f7164';
       context.font = '400 14px Arial';
@@ -475,7 +474,7 @@ const trimUntilCapital = (str : String) => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-must-text-primary">International Students Data</h1>
+          <h1 className="text-2xl font-bold text-must-text-primary">Student Data</h1>
           <p className="text-sm text-must-text-secondary mt-1 max-w-2xl">
             Manage the student roster and analytics table. Each Excel import clears existing
             records and loads only what is in the new sheet.
@@ -537,6 +536,12 @@ const trimUntilCapital = (str : String) => {
                 placeholder="e.g. Egypt"
                 required />
 
+              <Input
+                label="College"
+                value={formValues.college ?? ''}
+                onChange={(event) => handleFormFieldChange('college', event.target.value)}
+                placeholder="e.g. College of Information Technology" />
+
               <div>
                 <label className="block text-sm font-medium text-must-text-primary mb-1">
                   Major
@@ -555,11 +560,48 @@ const trimUntilCapital = (str : String) => {
               </div>
 
               <Input
+                label="Team Code"
+                value={formValues.teamCode ?? ''}
+                onChange={(event) => handleFormFieldChange('teamCode', event.target.value)}
+                placeholder="e.g. A1" />
+
+              <Input
+                label="Amit"
+                value={formValues.amit ?? ''}
+                onChange={(event) => handleFormFieldChange('amit', event.target.value)}
+                placeholder="e.g. 2024FA" />
+
+              <Input
                 label="Level"
                 value={formValues.level}
                 onChange={(event) => handleFormFieldChange('level', event.target.value)}
                 placeholder="e.g. Level 3"
                 required />
+
+              <Input
+                label="Class"
+                value={formValues.className ?? ''}
+                onChange={(event) => handleFormFieldChange('className', event.target.value)}
+                placeholder="e.g. Class A" />
+
+              <Input
+                label="Mobile"
+                value={formValues.mobile ?? ''}
+                onChange={(event) => handleFormFieldChange('mobile', event.target.value)}
+                placeholder="e.g. 01000000000" />
+
+              <Input
+                label="Email"
+                type="email"
+                value={formValues.email ?? ''}
+                onChange={(event) => handleFormFieldChange('email', event.target.value)}
+                placeholder="e.g. student@must.edu.eg" />
+
+              <Input
+                label="Advisor Name"
+                value={formValues.advisorName ?? ''}
+                onChange={(event) => handleFormFieldChange('advisorName', event.target.value)}
+                placeholder="e.g. Dr. Ahmed Mohamed" />
 
               <Input
                 label="Current GPA"
@@ -570,6 +612,23 @@ const trimUntilCapital = (str : String) => {
                 value={formValues.gpa == null ? '' : String(formValues.gpa)}
                 onChange={(event) => handleFormFieldChange('gpa', event.target.value)}
                 placeholder="Leave empty if unavailable" />
+
+              <div>
+                <label className="block text-sm font-medium text-must-text-primary mb-1">
+                  Status
+                </label>
+                <select
+                  value={formValues.status ?? 'active'}
+                  onChange={(event) => handleFormFieldChange('status', event.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-must-border bg-must-surface text-sm focus:ring-2 focus:ring-must-green outline-none">
+
+                  {studentStatuses.map((status) =>
+                  <option key={status} value={status}>
+                      {status === 'discontinued' ? 'Discontinued' : 'Active'}
+                    </option>
+                  )}
+                </select>
+              </div>
 
             </div>
             <div className="flex justify-end">
@@ -661,7 +720,7 @@ const trimUntilCapital = (str : String) => {
         <div className="flex items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
             <BarChart3Icon className="w-5 h-5 text-must-green" />
-            <h2 className="text-lg font-semibold text-must-text-primary">Students by GPA Range</h2>
+            <h2 className="text-lg font-semibold text-must-text-primary">Students by CGPA Classification</h2>
           </div>
           <button
             type="button"

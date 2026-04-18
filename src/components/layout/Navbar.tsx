@@ -8,6 +8,7 @@ import {
   PlaneIcon } from
 'lucide-react';
 import { useState } from 'react';
+import { DashboardLayout } from './DashboardLayout';
 interface NavbarProps {
   onToggleSidebar: () => void;
   darkMode: boolean;
@@ -119,7 +120,7 @@ export function Navbar({
             alt="MISR UNIVERSITY Logo"
             className="h-16 w-auto object-contain sm:h-20" />
           <div className="text-center leading-tight">
-            <p className="text-[0.68rem] uppercase tracking-[0.32em] text-white/70">Portal</p>
+            <p className="text-[0.68rem] uppercase tracking-[0.32em] text-white/70">Admin Dashboard</p>
             <h1 className="text-sm font-semibold text-white sm:text-xl">International Students Affairs Portal</h1>
           </div>
         </div>

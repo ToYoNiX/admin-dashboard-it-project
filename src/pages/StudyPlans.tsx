@@ -32,7 +32,7 @@ interface SingleFieldMeta {
   curriculum: 'old' | 'new';
 }
 
-type MainTab = 'Undergraduate' | 'Postgraduate';
+type MainTab = 'Undergraduate Program' | 'Postgraduate Program';
 type SectionMode = 'add' | 'view';
 type FormTrack = 'undergraduate' | 'postgraduate';
 type ProgramCode = 'cs' | 'is' | 'ai';
@@ -46,33 +46,33 @@ type FilterDiploma = StudyPlanDiplomaField | 'all';
 const ITEMS_PER_PAGE = 5;
 
 const UNDERGRAD_OLD_FIELDS: SingleFieldMeta[] = [
-  { key: 'undergrad_cs_old_curriculum', label: 'CS - Old Curriculum', program: 'cs', curriculum: 'old' },
-  { key: 'undergrad_is_old_curriculum', label: 'IS - Old Curriculum', program: 'is', curriculum: 'old' },
-  { key: 'undergrad_ai_old_curriculum', label: 'AI - Old Curriculum', program: 'ai', curriculum: 'old' }
+  { key: 'undergrad_cs_old_curriculum', label: 'Computer Science - Old Curriculum', program: 'cs', curriculum: 'old' },
+  { key: 'undergrad_is_old_curriculum', label: 'Information Systems - Old Curriculum', program: 'is', curriculum: 'old' },
+  { key: 'undergrad_ai_old_curriculum', label: 'Artificial Intelligence - Old Curriculum', program: 'ai', curriculum: 'old' }
 ];
 
 const UNDERGRAD_NEW_FIELDS: SingleFieldMeta[] = [
-  { key: 'undergrad_cs_new_curriculum', label: 'CS - New Curriculum', program: 'cs', curriculum: 'new' },
-  { key: 'undergrad_is_new_curriculum', label: 'IS - New Curriculum', program: 'is', curriculum: 'new' },
-  { key: 'undergrad_ai_new_curriculum', label: 'AI - New Curriculum', program: 'ai', curriculum: 'new' }
+  { key: 'undergrad_cs_new_curriculum', label: 'Computer Science - New Curriculum', program: 'cs', curriculum: 'new' },
+  { key: 'undergrad_is_new_curriculum', label: 'Information Systems - New Curriculum', program: 'is', curriculum: 'new' },
+  { key: 'undergrad_ai_new_curriculum', label: 'Artificial Intelligence - New Curriculum', program: 'ai', curriculum: 'new' }
 ];
 
 const MASTER_FIELDS: SingleFieldMeta[] = [
-  { key: 'master_cs_old_curriculum', label: 'CS - Old Curriculum', program: 'cs', curriculum: 'old' },
-  { key: 'master_is_old_curriculum', label: 'IS - Old Curriculum', program: 'is', curriculum: 'old' },
-  { key: 'master_ai_old_curriculum', label: 'AI - Old Curriculum', program: 'ai', curriculum: 'old' },
-  { key: 'master_cs_new_curriculum', label: 'CS - New Curriculum', program: 'cs', curriculum: 'new' },
-  { key: 'master_is_new_curriculum', label: 'IS - New Curriculum', program: 'is', curriculum: 'new' },
-  { key: 'master_ai_new_curriculum', label: 'AI - New Curriculum', program: 'ai', curriculum: 'new' }
+  { key: 'master_cs_old_curriculum', label: 'Computer Science - Old Curriculum', program: 'cs', curriculum: 'old' },
+  { key: 'master_is_old_curriculum', label: 'Information Systems - Old Curriculum', program: 'is', curriculum: 'old' },
+  { key: 'master_ai_old_curriculum', label: 'Artificial Intelligence - Old Curriculum', program: 'ai', curriculum: 'old' },
+  { key: 'master_cs_new_curriculum', label: 'Computer Science - New Curriculum', program: 'cs', curriculum: 'new' },
+  { key: 'master_is_new_curriculum', label: 'Information Systems - New Curriculum', program: 'is', curriculum: 'new' },
+  { key: 'master_ai_new_curriculum', label: 'Artificial Intelligence - New Curriculum', program: 'ai', curriculum: 'new' }
 ];
 
 const PHD_FIELDS: SingleFieldMeta[] = [
-  { key: 'phd_cs_old_curriculum', label: 'CS - Old Curriculum', program: 'cs', curriculum: 'old' },
-  { key: 'phd_is_old_curriculum', label: 'IS - Old Curriculum', program: 'is', curriculum: 'old' },
-  { key: 'phd_ai_old_curriculum', label: 'AI - Old Curriculum', program: 'ai', curriculum: 'old' },
-  { key: 'phd_cs_new_curriculum', label: 'CS - New Curriculum', program: 'cs', curriculum: 'new' },
-  { key: 'phd_is_new_curriculum', label: 'IS - New Curriculum', program: 'is', curriculum: 'new' },
-  { key: 'phd_ai_new_curriculum', label: 'AI - New Curriculum', program: 'ai', curriculum: 'new' }
+  { key: 'phd_cs_old_curriculum', label: 'Computer Science - Old Curriculum', program: 'cs', curriculum: 'old' },
+  { key: 'phd_is_old_curriculum', label: 'Information Systems - Old Curriculum', program: 'is', curriculum: 'old' },
+  { key: 'phd_ai_old_curriculum', label: 'Artificial Intelligence - Old Curriculum', program: 'ai', curriculum: 'old' },
+  { key: 'phd_cs_new_curriculum', label: 'Computer Science - New Curriculum', program: 'cs', curriculum: 'new' },
+  { key: 'phd_is_new_curriculum', label: 'Information Systems - New Curriculum', program: 'is', curriculum: 'new' },
+  { key: 'phd_ai_new_curriculum', label: 'Artificial Intelligence - New Curriculum', program: 'ai', curriculum: 'new' }
 ];
 
 const DIPLOMA_LABELS: Record<StudyPlanDiplomaField, string> = {
@@ -88,9 +88,9 @@ const DIPLOMA_OPTIONS: Array<{ value: StudyPlanDiplomaField; label: string }> = 
 ];
 
 const PROGRAM_OPTIONS: Array<{ value: ProgramCode; label: string }> = [
-  { value: 'cs', label: 'CS' },
-  { value: 'is', label: 'IS' },
-  { value: 'ai', label: 'AI' }
+  { value: 'cs', label: 'Computer Science' },
+  { value: 'is', label: 'Information Systems' },
+  { value: 'ai', label: 'Artificial Intelligence' }
 ];
 
 const CURRICULUM_OPTIONS: Array<{ value: CurriculumCode; label: string }> = [
@@ -144,7 +144,7 @@ function getPaginatedItems<T>(items: T[], page: number): T[] {
 }
 
 export function StudyPlans() {
-  const [activeTab, setActiveTab] = useState<MainTab>('Undergraduate');
+  const [activeTab, setActiveTab] = useState<MainTab>('Undergraduate Program');
   const [sectionMode, setSectionMode] = useState<SectionMode>('add');
   const [record, setRecord] = useState<StudyPlanRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -235,7 +235,7 @@ export function StudyPlans() {
 
   function handleTabChange(tab: MainTab): void {
     setActiveTab(tab);
-    setFormTrack(tab === 'Undergraduate' ? 'undergraduate' : 'postgraduate');
+    setFormTrack(tab === 'Undergraduate Program' ? 'undergraduate' : 'postgraduate');
     setSectionMode('add');
   }
 
@@ -625,7 +625,7 @@ export function StudyPlans() {
       <h1 className="text-2xl font-bold text-must-text-primary">Educational Programs Management</h1>
 
       <div className="flex border-b border-must-border overflow-x-auto">
-        {(['Undergraduate', 'Postgraduate'] as MainTab[]).map((tab) => (
+        {(['Undergraduate Program', 'Postgraduate Program'] as MainTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => handleTabChange(tab)}
@@ -670,14 +670,14 @@ export function StudyPlans() {
               <div className="rounded-xl border border-must-border p-4 md:p-5 bg-must-surface space-y-5">
                 <div>
                   <h3 className="text-base font-semibold text-must-text-primary">
-                    {activeTab === 'Undergraduate' ? 'Undergraduate Upload' : 'Postgraduate Upload'}
+                    {activeTab === 'Undergraduate Program' ? 'Undergraduate Program Upload' : 'Postgraduate Program Upload'}
                   </h3>
                   <p className="text-sm text-must-text-secondary mt-1">
                     Add files only for the current tab from here.
                   </p>
                 </div>
 
-                {activeTab === 'Undergraduate' ? (
+                {activeTab === 'Undergraduate Program' ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-must-text-primary">Program</label>
@@ -775,15 +775,15 @@ export function StudyPlans() {
                   </div>
                 )}
 
-                {activeTab === 'Undergraduate' && selectedSingleFieldMeta
+                {activeTab === 'Undergraduate Program' && selectedSingleFieldMeta
                   ? renderFocusedSingleUpload(selectedSingleFieldMeta)
                   : null}
 
-                {activeTab === 'Postgraduate' && postgraduateType !== 'professional_diploma' && selectedSingleFieldMeta
+                {activeTab === 'Postgraduate Program' && postgraduateType !== 'professional_diploma' && selectedSingleFieldMeta
                   ? renderFocusedSingleUpload(selectedSingleFieldMeta)
                   : null}
 
-                {activeTab === 'Postgraduate' && postgraduateType === 'professional_diploma'
+                {activeTab === 'Postgraduate Program' && postgraduateType === 'professional_diploma'
                   ? renderFocusedDiplomaUpload(diplomaCategory)
                   : null}
               </div>
@@ -802,7 +802,7 @@ export function StudyPlans() {
           ) : null}
 
           {!isLoading && sectionMode === 'view' ? (
-            activeTab === 'Undergraduate' ? (
+            activeTab === 'Undergraduate Program' ? (
               <>
                 <div className="rounded-xl border border-must-border p-4 md:p-5 bg-must-surface space-y-4">
                   <div>

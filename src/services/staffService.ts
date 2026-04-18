@@ -36,12 +36,24 @@ export interface StaffRecord {
 }
 
 export const staffRanks = [
-  'Professors',
-  'Assistant Professors',
-  'Lecturers',
-  'Assistant Lecturers',
-  'Teaching Assistants'
+  'Professor',
+  'Assistant Professor',
+  'Lecturer',
+  'Assistant Lecturer',
+  'Teaching Assistant'
 ] as const;
+
+const legacyRankMap: Record<string, (typeof staffRanks)[number]> = {
+  Professors: 'Professor',
+  'Assistant Professors': 'Assistant Professor',
+  Lecturers: 'Lecturer',
+  'Assistant Lecturers': 'Assistant Lecturer',
+  'Teaching Assistants': 'Teaching Assistant'
+};
+
+function normalizeStaffRank(rank: string): (typeof staffRanks)[number] {
+  return (legacyRankMap[rank] ?? rank) as (typeof staffRanks)[number];
+}
 
 const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-');
 
@@ -99,7 +111,7 @@ export async function createStaffProfile(
   const imagePath = await uploadStaffFile(staffImage, imageTarget);
 
   const { error } = await supabase.from(supabaseStaffTable).insert({
-    title: payload.title,
+    title: normalizeStaffRank(payload.title),
     first_name: payload.firstName,
     last_name: payload.lastName,
     email: payload.email.trim().toLowerCase(),
@@ -133,7 +145,10 @@ export async function listStaffProfiles(): Promise<StaffRecord[]> {
     throw new Error(`Failed to load staff profiles: ${error.message}`);
   }
 
-  return (data ?? []) as StaffRecord[];
+  return ((data ?? []) as StaffRecord[]).map((record) => ({
+    ...record,
+    title: normalizeStaffRank(record.title)
+  }));
 }
 
 export async function updateStaffProfile(
@@ -171,7 +186,7 @@ export async function updateStaffProfile(
   const { error } = await supabase
     .from(supabaseStaffTable)
     .update({
-      title: payload.title,
+      title: normalizeStaffRank(payload.title),
       first_name: payload.firstName,
       last_name: payload.lastName,
       email: payload.email.trim().toLowerCase(),
