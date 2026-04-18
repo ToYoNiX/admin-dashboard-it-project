@@ -65,6 +65,8 @@ export function Activities() {
   const [submitError, setSubmitError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ActivityRecord | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [parentCategory, setParentCategory] = useState<'student activity' | 'student club'>('student activity');
+  const [subActivityType, setSubActivityType] = useState<'sport' | 'cultural' | 'art'>('sport');
 
   useEffect(() => {
     void loadActivities();
@@ -131,6 +133,8 @@ export function Activities() {
     setRemoveExistingImage(false);
     setEditingRecord(null);
     setSubmitError('');
+    setParentCategory('student activity');
+    setSubActivityType('sport');
   }
 
   function startEdit(record: ActivityRecord): void {
@@ -141,6 +145,12 @@ export function Activities() {
       activityType: record.activity_type,
       href: record.href ?? ''
     });
+    if (record.activity_type === 'student club') {
+      setParentCategory('student club');
+    } else {
+      setParentCategory('student activity');
+      setSubActivityType(record.activity_type as 'sport' | 'cultural' | 'art');
+    }
     setFormErrors({});
     setSubmitError('');
     setSelectedImageFile(null);
@@ -221,16 +231,41 @@ export function Activities() {
               <div>
                 <label className="block text-sm font-medium text-must-text-primary mb-1">Activity Type</label>
                 <select
-                  value={form.activityType}
-                  onChange={(event) => setForm((prev) => ({ ...prev, activityType: event.target.value as ActivityInput['activityType'] }))}
+                  value={parentCategory}
+                  onChange={(event) => {
+                    const val = event.target.value as 'student activity' | 'student club';
+                    setParentCategory(val);
+                    if (val === 'student club') {
+                      setForm((prev) => ({ ...prev, activityType: 'student club' }));
+                    } else {
+                      setForm((prev) => ({ ...prev, activityType: subActivityType }));
+                    }
+                  }}
                   className="w-full rounded-lg border border-must-border bg-must-surface text-must-text-primary px-4 py-2 text-sm focus:ring-2 focus:ring-must-green outline-none"
                 >
-                  {activityTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {formatActivityType(type)}
-                    </option>
-                  ))}
+                  <option value="student activity">Student Activity</option>
+                  <option value="student club">Student Club</option>
                 </select>
+
+                {parentCategory === 'student activity' ? (
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-must-text-secondary mb-1">Activity Category</label>
+                    <select
+                      value={subActivityType}
+                      onChange={(event) => {
+                        const val = event.target.value as 'sport' | 'cultural' | 'art';
+                        setSubActivityType(val);
+                        setForm((prev) => ({ ...prev, activityType: val }));
+                      }}
+                      className="w-full rounded-lg border border-must-border bg-must-surface text-must-text-primary px-4 py-2 text-sm focus:ring-2 focus:ring-must-green outline-none"
+                    >
+                      <option value="sport">Sport</option>
+                      <option value="cultural">Cultural</option>
+                      <option value="art">Art</option>
+                    </select>
+                  </div>
+                ) : null}
+
                 {formErrors.activityType ? <p className="mt-1 text-sm text-red-500">{formErrors.activityType}</p> : null}
               </div>
 
