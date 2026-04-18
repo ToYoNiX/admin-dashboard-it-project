@@ -1,5 +1,4 @@
 import {
-  LayoutDashboardIcon,
   UsersIcon,
   BriefcaseIcon,
   NewspaperIcon,
@@ -18,8 +17,7 @@ import {
   PartyPopperIcon,
   MegaphoneIcon,
   GlobeIcon,
-  BarChart3Icon,
-  UserRoundIcon } from
+  BarChart3Icon } from
 'lucide-react';
 interface SidebarProps {
   activePage: string;
@@ -81,11 +79,6 @@ export function Sidebar({
 
   const advisorItems = [
   {
-    id: 'Students',
-    icon: UserRoundIcon,
-    label: 'Student'
-  },
-  {
     id: 'Announcements',
     icon: MegaphoneIcon,
     label: 'Announcement'
@@ -98,7 +91,8 @@ export function Sidebar({
   {
     id: 'International Students Data',
     icon: GlobeIcon,
-    label: 'International students data'
+    label: 'International data',
+    menuTitle: 'International students data'
   },
   {
     id: 'Reports',
@@ -107,13 +101,6 @@ export function Sidebar({
   }];
 
   const isAdvisorsActive = advisorItems.some((item) => item.id === activePage);
-
-  const primaryMenuItems = [
-  {
-    id: 'Dashboard',
-    icon: LayoutDashboardIcon,
-    label: 'Dashboard'
-  }];
 
   const menuItems = [
     {
@@ -153,33 +140,6 @@ export function Sidebar({
 
       <div className="flex-1 py-6 overflow-y-auto scrollbar-custom">
         <nav className="space-y-1 px-3">
-          {primaryMenuItems.map((item) => {
-            const isActive = activePage === item.id;
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onPageChange(item.id)}
-                className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors group relative ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
-                title={collapsed ? item.label : undefined}>
-
-                {isActive &&
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-must-green rounded-r-full" />
-                }
-
-
-                {!collapsed &&
-                <span className="font-medium text-sm whitespace-nowrap mr-3">
-                    {item.label}
-                  </span>
-                }
-
-                <Icon
-                  className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : ''}`} />
-              </button>);
-
-          })}
-
           <div className="relative group">
             <button
               type="button"
@@ -233,7 +193,7 @@ export function Sidebar({
           <div className="relative group">
             <button
               type="button"
-              onClick={() => onPageChange('Students')}
+              onClick={() => onPageChange('Reports')}
               className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors group relative ${isAdvisorsActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
               title={collapsed ? 'Advisors' : undefined}>
 
@@ -255,23 +215,25 @@ export function Sidebar({
             </button>
 
             <div
-              className={`hidden group-hover:block ${collapsed ? 'absolute right-full top-0 mr-2 w-64' : 'pr-4 pl-1 pt-1'}`}>
+              className={`hidden group-hover:block ${collapsed ? 'absolute right-full top-0 mr-2 w-[13.5rem]' : 'pr-3 pl-1 pt-1 min-w-0'}`}>
 
-              <div className="rounded-lg border border-must-border bg-must-surface shadow-lg md:shadow-none">
-                <div className="py-2">
+              <div className="rounded-lg border border-must-border bg-must-surface shadow-lg md:shadow-none max-w-full">
+                <div className="py-1.5">
                   {advisorItems.map((item) => {
                     const isSubActive = activePage === item.id;
                     const Icon = item.icon;
+                    const menuTitle = 'menuTitle' in item && typeof item.menuTitle === 'string' ? item.menuTitle : item.label;
 
                     return (
                       <button
                         key={item.id}
                         type="button"
+                        title={menuTitle}
                         onClick={() => onPageChange(item.id)}
-                        className={`w-full flex items-center justify-end gap-3 px-3 py-2 text-sm transition-colors ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}>
+                        className={`w-full flex items-center justify-end gap-2 px-2.5 py-1.5 text-xs transition-colors min-w-0 ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}>
 
-                        <span className="whitespace-nowrap text-right">{item.label}</span>
-                        <Icon className={`w-4 h-4 flex-shrink-0 ${isSubActive ? 'text-must-green' : 'text-slate-400'}`} />
+                        <span className="min-w-0 flex-1 text-right leading-snug break-words">{item.label}</span>
+                        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${isSubActive ? 'text-must-green' : 'text-slate-400'}`} />
                       </button>);
 
                   })}

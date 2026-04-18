@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { DashboardLayout } from './components/layout/DashboardLayout';
-import { Dashboard } from './pages/Dashboard';
-import { Students } from './pages/Students';
 import { Staff } from './pages/Staff';
 import { News } from './pages/News';
 import { Events } from './pages/Events';
@@ -39,7 +37,7 @@ import { getUnreadStudentMessageCount } from './services/messagesService';
 export function App() {
   const isRegisterRoute = window.location.pathname.toLowerCase().startsWith('/register');
 
-  const [activePage, setActivePage] = useState('Dashboard');
+  const [activePage, setActivePage] = useState('Reports');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [authView, setAuthView] = useState<'login' | 'signup'>('login');
@@ -127,7 +125,7 @@ export function App() {
 
   useEffect(() => {
     if (activePage === 'Manage Advisors' && !profile?.is_super_admin) {
-      setActivePage('Dashboard');
+      setActivePage('Reports');
     }
   }, [activePage, profile]);
 
@@ -197,10 +195,6 @@ export function App() {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'Dashboard':
-        return <Dashboard userName={userName} />;
-      case 'Students':
-        return <Students onNavigateToMessages={() => setActivePage('Messages')} />;
       case 'Staff':
         return <Staff />;
       case 'News':
@@ -234,19 +228,19 @@ export function App() {
       case 'Announcements':
         return <Announcements />;
       case 'Reports':
-        return <Reports />;
+        return <Reports userName={userName} />;
       case 'International Students Data':
-        return <InternationalStudentsData />;
+        return <InternationalStudentsData onNavigateToMessages={() => setActivePage('Messages')} />;
       case 'Messages':
         return <Messages advisorId={session?.user.id ?? ''} />;
       case 'Manage Advisors':
-        return profile?.is_super_admin ? <ManageAdvisors /> : <Dashboard userName={userName} />;
+        return profile?.is_super_admin ? <ManageAdvisors /> : <Reports userName={userName} />;
       case 'Documents':
         return <Documents />;
       case 'Settings':
         return <Settings userId={session?.user.id ?? ''} userEmail={session?.user.email ?? ''} />;
       default:
-        return <Dashboard userName={userName} />;
+        return <Reports userName={userName} />;
     }
   };
 
