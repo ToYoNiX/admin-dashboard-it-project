@@ -9,6 +9,14 @@ interface DashboardLayoutProps {
   onToggleSidebar: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
+  userName: string;
+  userAvatarUrl?: string | null;
+  unreadMessagesCount: number;
+  onClearNotifications: () => void;
+  isSuperAdmin: boolean;
+  onOpenSettings: () => void;
+  onLogout: () => void;
+  isLoggingOut?: boolean;
 }
 export function DashboardLayout({
   children,
@@ -17,22 +25,38 @@ export function DashboardLayout({
   sidebarCollapsed,
   onToggleSidebar,
   darkMode,
-  onToggleDarkMode
+  onToggleDarkMode,
+  userName,
+  userAvatarUrl,
+  unreadMessagesCount,
+  onClearNotifications,
+  isSuperAdmin,
+  onOpenSettings,
+  onLogout,
+  isLoggingOut = false
 }: DashboardLayoutProps) {
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'dark' : ''}`}>
       <Navbar
         onToggleSidebar={onToggleSidebar}
         darkMode={darkMode}
-        onToggleDarkMode={onToggleDarkMode} />
+        onToggleDarkMode={onToggleDarkMode}
+        userName={userName}
+        userAvatarUrl={userAvatarUrl}
+        unreadMessagesCount={unreadMessagesCount}
+        onClearNotifications={onClearNotifications}
+        onOpenSettings={onOpenSettings}
+        onLogout={onLogout}
+        isLoggingOut={isLoggingOut} />
 
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden flex-row-reverse">
         <Sidebar
           activePage={activePage}
           onPageChange={onPageChange}
           collapsed={sidebarCollapsed}
-          onToggleCollapse={onToggleSidebar} />
+          onToggleCollapse={onToggleSidebar}
+          isSuperAdmin={isSuperAdmin} />
 
 
         <main className="flex-1 overflow-y-auto scrollbar-custom flex flex-col bg-must-bg">
