@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Building2Icon,
   EyeIcon,
@@ -38,6 +39,8 @@ export function Sidebar({
   onToggleCollapse,
   isSuperAdmin
 }: SidebarProps) {
+  const [isHomeOpen, setIsHomeOpen] = useState(false);
+
   const academicItems = [
   {
     id: 'Staff',
@@ -105,6 +108,12 @@ export function Sidebar({
   }];
 
   const isHomeActive = homeItems.some((item) => item.id === activePage);
+
+  useEffect(() => {
+    if (isHomeActive) {
+      setIsHomeOpen(true);
+    }
+  }, [isHomeActive]);
 
   const advisorItems = [
   {
@@ -317,7 +326,7 @@ export function Sidebar({
           <div className="relative group">
             <button
               type="button"
-              onClick={() => onPageChange('About Sector')}
+              onClick={() => setIsHomeOpen((prev) => !prev)}
               className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors group relative ${isHomeActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
               title={collapsed ? 'Home' : undefined}>
 
@@ -327,8 +336,10 @@ export function Sidebar({
               {!collapsed &&
               <>
                   <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 ml-3">
-                    <ChevronDownIcon className="w-5 h-5 group-hover:hidden" />
-                    <ChevronUpIcon className="w-5 h-5 hidden group-hover:block" />
+                    {isHomeOpen ?
+                    <ChevronUpIcon className="w-5 h-5" /> :
+                    <ChevronDownIcon className="w-5 h-5" />
+                    }
                   </span>
                   <span className="font-medium text-base whitespace-nowrap mr-3">Home</span>
                 </>
@@ -338,30 +349,53 @@ export function Sidebar({
                 className={`w-6 h-6 flex-shrink-0 ${isHomeActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : ''}`} />
             </button>
 
-            <div
-              className={`hidden group-hover:block ${collapsed ? 'absolute right-full top-0 mr-2 w-[17rem]' : 'pr-4 pl-1 pt-1'}`}>
+            {collapsed ? (
+              <div className="hidden group-hover:block absolute right-full top-0 mr-2 w-[17rem]">
+                <div className="rounded-lg border border-must-border bg-must-surface shadow-lg">
+                  <div className="py-2">
+                    {homeItems.map((item) => {
+                      const isSubActive = activePage === item.id;
+                      const Icon = item.icon;
 
-              <div className="rounded-lg border border-must-border bg-must-surface shadow-lg md:shadow-none">
-                <div className="py-2">
-                  {homeItems.map((item) => {
-                    const isSubActive = activePage === item.id;
-                    const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => onPageChange(item.id)}
+                          className={`w-full flex items-center justify-end gap-3 px-3 py-2.5 text-base transition-colors ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}>
 
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => onPageChange(item.id)}
-                        className={`w-full flex items-center justify-end gap-3 px-3 py-2.5 text-base transition-colors ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}>
+                          <span className="whitespace-nowrap text-right">{item.label}</span>
+                          <Icon className={`w-5 h-5 flex-shrink-0 ${isSubActive ? 'text-must-green' : 'text-slate-400'}`} />
+                        </button>);
 
-                        <span className="whitespace-nowrap text-right">{item.label}</span>
-                        <Icon className={`w-5 h-5 flex-shrink-0 ${isSubActive ? 'text-must-green' : 'text-slate-400'}`} />
-                      </button>);
-
-                  })}
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : isHomeOpen ? (
+              <div className="pr-4 pl-1 pt-1">
+                <div className="rounded-lg border border-must-border bg-must-surface">
+                  <div className="py-2">
+                    {homeItems.map((item) => {
+                      const isSubActive = activePage === item.id;
+                      const Icon = item.icon;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => onPageChange(item.id)}
+                          className={`w-full flex items-center justify-end gap-3 px-3 py-2.5 text-base transition-colors ${isSubActive ? 'text-must-green bg-green-50 dark:bg-green-900/20' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}>
+
+                          <span className="whitespace-nowrap text-right">{item.label}</span>
+                          <Icon className={`w-5 h-5 flex-shrink-0 ${isSubActive ? 'text-must-green' : 'text-slate-400'}`} />
+                        </button>);
+
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="relative group">

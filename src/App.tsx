@@ -201,6 +201,14 @@ export function App() {
 
   const renderPage = () => {
     switch (activePage) {
+      case 'About Sector':
+        return <AboutSector />;
+      case 'Mission':
+        return <Mission />;
+      case 'Vision':
+        return <Vision />;
+      case 'Sector Plan':
+        return <SectorPlan />;
       case 'Staff':
         return <Staff />;
       case 'News':
