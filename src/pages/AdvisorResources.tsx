@@ -26,7 +26,7 @@ import { supabaseResourcesFilesBucket } from '../lib/supabase';
 const SECTIONS = [
   { id: 'academic_advising', label: 'Academic advising' },
   { id: 'registration', label: 'Registration' },
-  { id: 'scheduler', label: 'Scheduler' }
+  { id: 'scheduler', label: 'Schedules' }
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]['id'];

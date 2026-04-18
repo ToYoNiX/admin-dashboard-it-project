@@ -156,11 +156,10 @@ export function Reports({ userName }: ReportsProps) {
 
   const gpaRangeData = useMemo(() => {
     const ranges = [
-      { label: '0.00 - 1.99', min: 0, max: 1.99 },
-      { label: '2.00 - 2.49', min: 2, max: 2.49 },
-      { label: '2.50 - 2.99', min: 2.5, max: 2.99 },
-      { label: '3.00 - 3.49', min: 3, max: 3.49 },
-      { label: '3.50 - 4.00', min: 3.5, max: 4 }
+      { label: 'Excellent', min: 3.6, max: 4 },
+      { label: 'Very Good', min: 2.7, max: 3.599999 },
+      { label: 'Good', min: 2, max: 2.699999 },
+      { label: 'Pass', min: 0, max: 1.999999 }
     ];
 
     return ranges.map((range) => ({
@@ -289,7 +288,7 @@ export function Reports({ userName }: ReportsProps) {
   };
 
   const handleDownloadGpaChart = () => {
-    downloadChartAsPng(gpaChartRef, 'Students by GPA Range', 'reports-gpa-range-chart.png');
+    downloadChartAsPng(gpaChartRef, 'Students by CGPA Classification', 'reports-cgpa-classification-chart.png');
   };
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -577,7 +576,7 @@ export function Reports({ userName }: ReportsProps) {
       <Card className="group">
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <h2 className="text-lg font-semibold text-must-text-primary">
-            Students by GPA Range
+            Students by CGPA Classification
           </h2>
           <button
             type="button"

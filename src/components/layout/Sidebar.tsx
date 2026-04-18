@@ -73,7 +73,7 @@ export function Sidebar({
   const advisorsItems: MenuItem[] = [
     { id: 'Announcements', label: 'Announcements', icon: MegaphoneIcon },
     { id: 'Advisor Resources', label: 'Advising Resources', icon: GraduationCapIcon },
-    { id: 'International Students Data', label: 'International Data', icon: GlobeIcon },
+    { id: 'International Students Data', label: 'Student Data', icon: GlobeIcon },
     { id: 'Reports', label: 'Statistical Reports', icon: BarChart3Icon }
   ];
 
@@ -84,9 +84,9 @@ export function Sidebar({
 
   const staticItems: MenuItem[] = [
     { id: 'Activities', label: 'Activities', icon: PartyPopperIcon },
-    { id: 'Important Links', label: 'Important Links', icon: Link2Icon },
     { id: 'News', label: 'News', icon: NewspaperIcon },
     { id: 'Events', label: 'Events', icon: CalendarRangeIcon },
+    { id: 'Important Links', label: 'Important Links', icon: Link2Icon },
     { id: 'Gallery', label: 'Photo Gallery', icon: ImagesIcon }
   ];
 
@@ -178,7 +178,7 @@ export function Sidebar({
         <nav className="space-y-1 px-3">
           {renderGroup('Home', HouseIcon, homeItems)}
           {renderGroup('Academics', BookCopyIcon, academicsItems)}
-          {renderGroup('Advisors', UsersIcon, advisorsItems)}
+          {renderGroup('Advising', UsersIcon, advisorsItems)}
           {staticItems.slice(0, 1).map(renderButton)}
           {renderGroup('Facilities', Building2Icon, facilitiesItems)}
           {staticItems.slice(1).map(renderButton)}
