@@ -286,9 +286,9 @@ export function Staff() {
           <BriefcaseIcon className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-must-text-primary">Academic Rank</h1>
+          <h1 className="text-2xl font-bold text-must-text-primary">Academic Stuff</h1>
           <p className="text-sm text-must-text-secondary">
-            Add academic rank profile details and upload supporting files.
+            Add profile details and upload supporting files.
           </p>
         </div>
       </div>
@@ -479,7 +479,7 @@ export function Staff() {
       <Card>
         <CardHeader className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-must-text-primary">Academic Rank</h2>
+            <h2 className="text-lg font-semibold text-must-text-primary">Academic Stuff</h2>
             <p className="mt-1 text-xs text-must-text-secondary">
               Use the move buttons to reorder staff exactly as they should appear on the frontend.
             </p>

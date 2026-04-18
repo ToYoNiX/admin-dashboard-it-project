@@ -32,7 +32,7 @@ interface SingleFieldMeta {
   curriculum: 'old' | 'new';
 }
 
-type MainTab = 'Undergraduate Program' | 'Postgraduate Program';
+type MainTab = 'Undergraduate Programs' | 'Postgraduate Programs';
 type SectionMode = 'add' | 'view';
 type FormTrack = 'undergraduate' | 'postgraduate';
 type ProgramCode = 'cs' | 'is' | 'ai';
@@ -144,7 +144,7 @@ function getPaginatedItems<T>(items: T[], page: number): T[] {
 }
 
 export function StudyPlans() {
-  const [activeTab, setActiveTab] = useState<MainTab>('Undergraduate Program');
+  const [activeTab, setActiveTab] = useState<MainTab>('Undergraduate Programs');
   const [sectionMode, setSectionMode] = useState<SectionMode>('add');
   const [record, setRecord] = useState<StudyPlanRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -235,7 +235,7 @@ export function StudyPlans() {
 
   function handleTabChange(tab: MainTab): void {
     setActiveTab(tab);
-    setFormTrack(tab === 'Undergraduate Program' ? 'undergraduate' : 'postgraduate');
+    setFormTrack(tab === 'Undergraduate Programs' ? 'undergraduate' : 'postgraduate');
     setSectionMode('add');
   }
 
@@ -625,7 +625,7 @@ export function StudyPlans() {
       <h1 className="text-2xl font-bold text-must-text-primary">Educational Programs Management</h1>
 
       <div className="flex border-b border-must-border overflow-x-auto">
-        {(['Undergraduate Program', 'Postgraduate Program'] as MainTab[]).map((tab) => (
+        {(['Undergraduate Programs', 'Postgraduate Programs'] as MainTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => handleTabChange(tab)}
@@ -670,17 +670,17 @@ export function StudyPlans() {
               <div className="rounded-xl border border-must-border p-4 md:p-5 bg-must-surface space-y-5">
                 <div>
                   <h3 className="text-base font-semibold text-must-text-primary">
-                    {activeTab === 'Undergraduate Program' ? 'Undergraduate Program Upload' : 'Postgraduate Program Upload'}
+                    {activeTab === 'Undergraduate Programs' ? 'Undergraduate Programs Upload' : 'Postgraduate Programs Upload'}
                   </h3>
                   <p className="text-sm text-must-text-secondary mt-1">
                     Add files only for the current tab from here.
                   </p>
                 </div>
 
-                {activeTab === 'Undergraduate Program' ? (
+                {activeTab === 'Undergraduate Programs' ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-must-text-primary">Program</label>
+                      <label className="block text-sm font-medium text-must-text-primary">Programs</label>
                       <select
                         value={undergradProgram}
                         onChange={(event) => setUndergradProgram(event.target.value as ProgramCode)}
@@ -742,7 +742,7 @@ export function StudyPlans() {
                     ) : (
                       <>
                         <div className="space-y-2">
-                          <label className="block text-sm font-medium text-must-text-primary">Program</label>
+                          <label className="block text-sm font-medium text-must-text-primary">Programs</label>
                           <select
                             value={postgraduateProgram}
                             onChange={(event) => setPostgraduateProgram(event.target.value as ProgramCode)}
@@ -775,15 +775,15 @@ export function StudyPlans() {
                   </div>
                 )}
 
-                {activeTab === 'Undergraduate Program' && selectedSingleFieldMeta
+                {activeTab === 'Undergraduate Programs' && selectedSingleFieldMeta
                   ? renderFocusedSingleUpload(selectedSingleFieldMeta)
                   : null}
 
-                {activeTab === 'Postgraduate Program' && postgraduateType !== 'professional_diploma' && selectedSingleFieldMeta
+                {activeTab === 'Postgraduate Programs' && postgraduateType !== 'professional_diploma' && selectedSingleFieldMeta
                   ? renderFocusedSingleUpload(selectedSingleFieldMeta)
                   : null}
 
-                {activeTab === 'Postgraduate Program' && postgraduateType === 'professional_diploma'
+                {activeTab === 'Postgraduate Programs' && postgraduateType === 'professional_diploma'
                   ? renderFocusedDiplomaUpload(diplomaCategory)
                   : null}
               </div>
@@ -802,7 +802,7 @@ export function StudyPlans() {
           ) : null}
 
           {!isLoading && sectionMode === 'view' ? (
-            activeTab === 'Undergraduate Program' ? (
+            activeTab === 'Undergraduate Programs' ? (
               <>
                 <div className="rounded-xl border border-must-border p-4 md:p-5 bg-must-surface space-y-4">
                   <div>
@@ -812,7 +812,7 @@ export function StudyPlans() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-must-text-primary">Program</label>
+                      <label className="block text-sm font-medium text-must-text-primary">Programs</label>
                       <select
                         value={viewUndergradProgram}
                         onChange={(event) => setViewUndergradProgram(event.target.value as FilterProgram)}
@@ -875,7 +875,7 @@ export function StudyPlans() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-must-text-primary">Program</label>
+                      <label className="block text-sm font-medium text-must-text-primary">Programs</label>
                       <select
                         value={viewPostgraduateProgram}
                         onChange={(event) => setViewPostgraduateProgram(event.target.value as FilterProgram)}
