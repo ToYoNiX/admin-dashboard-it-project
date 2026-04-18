@@ -24,6 +24,7 @@ import { Messages } from './pages/Messages';
 import { Documents } from './pages/Documents';
 import { Settings } from './pages/Settings';
 import { ManageAdvisors } from './pages/ManageAdvisors';
+import { InternationalStudentsData } from './pages/InternationalStudentsData';
 import { LoginPage } from './pages/auth/LoginPage';
 import { SignupPage } from './pages/auth/SignupPage';
 import { RegisterFromInvitePage } from './pages/auth/RegisterFromInvitePage';
@@ -234,6 +235,8 @@ export function App() {
         return <Announcements />;
       case 'Reports':
         return <Reports />;
+      case 'International Students Data':
+        return <InternationalStudentsData />;
       case 'Messages':
         return <Messages advisorId={session?.user.id ?? ''} />;
       case 'Manage Advisors':
