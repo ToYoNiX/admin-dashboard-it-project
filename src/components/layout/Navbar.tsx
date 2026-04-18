@@ -44,8 +44,9 @@ export function Navbar({
   'AD';
 
   return (
-    <header className="h-16 bg-[#0D1B3E] text-white sticky top-0 z-50 flex items-center justify-between px-4 shadow-md">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <header className="sticky top-0 z-50 bg-[#0D1B3E] text-white shadow-md">
+      <div className="grid min-h-[88px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <div className="w-9 h-9 rounded-full bg-must-green text-white flex items-center justify-center text-sm font-bold border-2 border-white/20 mr-1 overflow-hidden">
           {userAvatarUrl ?
           <img src={userAvatarUrl} alt="Advisor avatar" className="w-full h-full object-cover" /> :
@@ -111,7 +112,20 @@ export function Navbar({
         </button>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-center">
+        <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 px-4 py-2">
+          <img
+            src="/assists/1740307130_140_87669_group1000004290.svg"
+            alt="MISR UNIVERSITY Logo"
+            className="h-16 w-auto object-contain sm:h-20" />
+          <div className="text-center leading-tight">
+            <p className="text-[0.68rem] uppercase tracking-[0.32em] text-white/70">Portal</p>
+            <h1 className="text-sm font-semibold text-white sm:text-xl">International Students Affairs Portal</h1>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 justify-end">
         <button
           onClick={onToggleSidebar}
           className="p-2 hover:bg-white/10 rounded-lg transition-colors md:hidden"
@@ -120,11 +134,7 @@ export function Navbar({
           <MenuIcon className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-3 cursor-pointer">
-          <div className="flex items-center justify-center">
-            <img src="/assists/1740307130_140_87669_group1000004290.svg" alt="MISR UNIVERSITY Logo" className="h-14 w-auto object-contain" />
-          </div>
-        </div>
+      </div>
       </div>
     </header>);
 
