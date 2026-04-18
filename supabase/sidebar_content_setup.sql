@@ -16,7 +16,7 @@ create table if not exists public.contact_information (
   map_link text,
   updated_at timestamptz not null default now()
 );
-
+-- mostafa mahmoud
 alter table public.important_links enable row level security;
 alter table public.contact_information enable row level security;
 
