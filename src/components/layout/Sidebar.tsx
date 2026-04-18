@@ -23,7 +23,11 @@ import {
   PartyPopperIcon,
   MegaphoneIcon,
   GlobeIcon,
-  BarChart3Icon } from
+  BarChart3Icon,
+  ListChecksIcon,
+  MonitorIcon,
+  ClipboardListIcon,
+  TrophyIcon } from
 'lucide-react';
 interface SidebarProps {
   activePage: string;
@@ -59,18 +63,18 @@ export function Sidebar({
   },
   {
     id: 'Registration',
-    icon: GraduationCapIcon,
+    icon: ClipboardListIcon,
     label: 'Registration'
   },
   {
     id: 'Smart E-Learning',
-    icon: GraduationCapIcon,
-    label: 'Smart E-Learning'
+    icon: MonitorIcon,
+    label: 'Smart E-learning'
   },
   {
-    id: 'Honor List',
-    icon: GraduationCapIcon,
-    label: 'Honor List'
+    id: 'Calendars',
+    icon: CalendarRangeIcon,
+    label: 'Academic Calendars'
   },
   {
     id: 'Schedules',
@@ -78,9 +82,9 @@ export function Sidebar({
     label: 'Schedules'
   },
   {
-    id: 'Calendars',
-    icon: CalendarRangeIcon,
-    label: 'Calendars'
+    id: 'Honor List',
+    icon: TrophyIcon,
+    label: 'Honor List'
   }];
 
   const isAcademicsActive = academicItems.some((item) => item.id === activePage);
@@ -511,3 +515,4 @@ export function Sidebar({
     </aside>);
 
 }
+//shahd
