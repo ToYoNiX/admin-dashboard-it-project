@@ -168,3 +168,55 @@ export async function bulkUpsertStudents(inputs: StudentInput[]): Promise<void> 
     throw new Error(`Failed to import students: ${error.message}`);
   }
 }
+
+const INSERT_CHUNK_SIZE = 150;
+
+export async function replaceAllStudents(inputs: StudentInput[]): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  if (inputs.length === 0) {
+    throw new Error('No students found to import.');
+  }
+
+  inputs.forEach(validateStudentInput);
+
+  const { error: deleteError } = await supabase.from(supabaseStudentsTable).delete().neq('student_id', '');
+
+  if (deleteError) {
+    if (isMissingStudentsTable(deleteError)) {
+      throw new Error('Students backend is not initialized yet. Run the SQL setup script first.');
+    }
+    throw new Error(`Failed to clear existing students: ${deleteError.message}`);
+  }
+
+  const now = new Date().toISOString();
+  const payload = inputs.map((input) => ({
+    student_id: input.studentId.trim(),
+    full_name: input.fullName.trim(),
+    nationality: input.nationality.trim(),
+    college: input.college?.trim() || null,
+    major: input.major,
+    team_code: input.teamCode?.trim() || null,
+    amit: input.amit?.trim() || null,
+    level: input.level.trim(),
+    class_name: input.className?.trim() || null,
+    mobile: input.mobile?.trim() || null,
+    email: input.email?.trim() || null,
+    advisor_name: input.advisorName?.trim() || null,
+    gpa: input.gpa,
+    status: input.status ?? 'active',
+    created_at: now,
+    updated_at: now
+  }));
+
+  for (let i = 0; i < payload.length; i += INSERT_CHUNK_SIZE) {
+    const chunk = payload.slice(i, i + INSERT_CHUNK_SIZE);
+    const { error: insertError } = await supabase.from(supabaseStudentsTable).insert(chunk);
+
+    if (insertError) {
+      throw new Error(`Failed to import students after clearing data: ${insertError.message}`);
+    }
+  }
+}

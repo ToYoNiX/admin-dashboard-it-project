@@ -22,7 +22,7 @@ import {
 } from '../services/honorListService';
 import { getPublicFileUrl } from '../services/storageUtils';
 import {
-  bulkUpsertStudents,
+  replaceAllStudents,
   createStudent,
   listStudents,
   studentMajors,
@@ -34,7 +34,7 @@ import {
 type SortBy = 'name' | 'id' | 'gpa';
 type SortDirection = 'asc' | 'desc';
 
-interface StudentsProps {
+interface InternationalStudentsDataProps {
   onNavigateToMessages?: () => void;
 }
 
@@ -179,7 +179,7 @@ async function parseStudentSheet(file: File): Promise<StudentInput[]> {
     .filter((row) => row.studentId || row.fullName);
 }
 
-export function Students({ onNavigateToMessages }: StudentsProps) {
+export function InternationalStudentsData({ onNavigateToMessages }: InternationalStudentsDataProps) {
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -379,9 +379,11 @@ const trimUntilCapital = (str : String) => {
 
     try {
       const importedStudents = await parseStudentSheet(selectedImportFile);
-      await bulkUpsertStudents(importedStudents);
+      await replaceAllStudents(importedStudents);
       setSelectedImportFile(null);
-      setFeedbackSuccess(`Imported ${importedStudents.length} students successfully.`);
+      setFeedbackSuccess(
+        `Replaced all student records with ${importedStudents.length} rows from the new file.`
+      );
       await loadStudents();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to import students.';
@@ -505,9 +507,13 @@ const trimUntilCapital = (str : String) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-must-text-primary">
-          Students Management
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-must-text-primary">International Students Data</h1>
+          <p className="text-sm text-must-text-secondary mt-1 max-w-2xl">
+            Manage the student roster, honor list, and analytics table. Each Excel import clears existing
+            records and loads only what is in the new sheet.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-3">
           <label className="inline-flex items-center gap-2 rounded-lg border border-dashed border-must-border px-4 py-2 text-sm text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer bg-must-surface">
             <UploadIcon className="w-4 h-4" />
@@ -528,7 +534,7 @@ const trimUntilCapital = (str : String) => {
             }}
             disabled={isImporting || !selectedImportFile}>
 
-            {isImporting ? 'Importing...' : 'Import Excel'}
+            {isImporting ? 'Replacing…' : 'Replace all from Excel'}
           </Button>
           <Button
             icon={<PlusIcon className="w-4 h-4" />}
@@ -696,8 +702,10 @@ const trimUntilCapital = (str : String) => {
       </Card>
 
       <Card className="p-4">
-        <div className="mb-4 rounded-lg border border-dashed border-must-border bg-slate-50 dark:bg-slate-800/40 p-4 text-sm text-must-text-secondary">
-          Excel columns supported: `id`, `name`, `college`, `major`, `team code`, `amit`, `gpa`, `class`, `mobile`, `email`, `advisor name`, `nationality`.
+        <div className="mb-4 rounded-lg border border-dashed border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-4 text-sm text-must-text-secondary">
+          <strong className="text-must-text-primary">Full replace:</strong> uploading applies the spreadsheet as the
+          only source of truth—every previous row is removed first. Supported columns: `id`, `name`, `college`,
+          `major`, `team code`, `amit`, `gpa`, `class`, `mobile`, `email`, `advisor name`, `nationality`, `status`.
         </div>
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">

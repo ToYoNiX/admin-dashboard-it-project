@@ -20,7 +20,10 @@ import {
   ChevronUpIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  PartyPopperIcon } from
+  PartyPopperIcon,
+  MegaphoneIcon,
+  GlobeIcon,
+  BarChart3Icon } from
 'lucide-react';
 interface SidebarProps {
   activePage: string;
@@ -106,9 +109,25 @@ export function Sidebar({
 
   const primaryMenuItems = [
   {
-    id: 'Dashboard',
-    icon: LayoutDashboardIcon,
-    label: 'Dashboard'
+    id: 'Announcements',
+    icon: MegaphoneIcon,
+    label: 'Announcement'
+  },
+  {
+    id: 'Advisor Resources',
+    icon: GraduationCapIcon,
+    label: 'Advising resources'
+  },
+  {
+    id: 'International Students Data',
+    icon: GlobeIcon,
+    label: 'International data',
+    menuTitle: 'International students data'
+  },
+  {
+    id: 'Reports',
+    icon: BarChart3Icon,
+    label: 'Statistical reports'
   }];
 
   const menuItemsBeforeFacilities = [
@@ -138,11 +157,6 @@ export function Sidebar({
     id: 'Gallery',
     icon: ImagesIcon,
     label: 'Photo Gallery'
-  },
-  {
-    id: 'Advisor Resources',
-    icon: GraduationCapIcon,
-    label: 'Advisor Resources'
   },
   {
     id: 'Student Resources',
@@ -175,33 +189,6 @@ export function Sidebar({
 
       <div className="flex-1 py-6 overflow-y-auto scrollbar-custom">
         <nav className="space-y-1 px-3">
-          {primaryMenuItems.map((item) => {
-            const isActive = activePage === item.id;
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onPageChange(item.id)}
-                className={`w-full flex items-center justify-end py-3 px-3 rounded-lg transition-colors group relative ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-must-green' : 'text-must-text-secondary hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-must-text-primary'}`}
-                title={collapsed ? item.label : undefined}>
-
-                {isActive &&
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-must-green rounded-r-full" />
-                }
-
-
-                {!collapsed &&
-                <span className="font-medium text-sm whitespace-nowrap mr-3">
-                    {item.label}
-                  </span>
-                }
-
-                <Icon
-                  className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-must-green' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'} ${collapsed ? 'mx-auto' : ''}`} />
-              </button>);
-
-          })}
-
           <div className="relative group">
             <button
               type="button"
