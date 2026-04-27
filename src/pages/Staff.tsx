@@ -43,7 +43,7 @@ interface StaffFormData {
 }
 
 const initialFormData: StaffFormData = {
-  title: 'Professors',
+  title: 'Professor',
   firstName: '',
   lastName: '',
   email: '',
@@ -288,7 +288,7 @@ export function Staff() {
         <div>
           <h1 className="text-2xl font-bold text-must-text-primary">Academic Staff</h1>
           <p className="text-sm text-must-text-secondary">
-            Add staff profile details and upload supporting files.
+            Add profile details and upload supporting files.
           </p>
         </div>
       </div>
@@ -327,7 +327,7 @@ export function Staff() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-must-text-primary mb-1">
-                  Academic Rank <span className="ml-1 text-red-500">*</span>
+                  Academic Degree <span className="ml-1 text-red-500">*</span>
                 </label>
                 <select
                   name="title"

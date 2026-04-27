@@ -188,7 +188,9 @@ export async function countAdvisorProfiles(): Promise<number> {
 
   const { count, error } = await supabase
     .from('advisor_profiles')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .eq('is_active', true)
+    .eq('is_super_admin', false);
 
   if (error) {
     throw new Error(error.message);

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DownloadIcon,
   FileTextIcon,
@@ -6,7 +6,7 @@ import {
   LinkIcon,
   PlayCircleIcon,
   Trash2Icon,
-  UploadIcon
+  ImageIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -14,27 +14,70 @@ import { Button } from '../components/ui/Button';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { Pagination } from '../components/ui/Pagination';
 import {
-  advisorResourceTypes,
   createAdvisorResource,
   deleteAdvisorResource,
   listAdvisorResources,
   type AdvisorResourceInput,
-  type AdvisorResourceRecord,
-  updateAdvisorResource
+  type AdvisorResourceRecord
 } from '../services/advisorResourcesService';
 import { getPublicFileUrl } from '../services/storageUtils';
 import { supabaseResourcesFilesBucket } from '../lib/supabase';
 
-const initialForm: AdvisorResourceInput = {
-  title: '',
-  description: '',
-  resourceType: 'file',
-  resourceUrl: '',
-  duration: ''
+const SECTIONS = [
+  { id: 'academic_advising', label: 'Academic advising' },
+  { id: 'registration', label: 'Registration' },
+  { id: 'scheduler', label: 'Schedules' }
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]['id'];
+
+type SectionDraft = {
+  photoFile: File | null;
+  pdfFile: File | null;
+  videoUrl: string;
+  linkUrl: string;
+  sourceOfLink: string;
 };
 
-function labelizeType(type: string): string {
-  return type.charAt(0).toUpperCase() + type.slice(1);
+function emptyDraft(): SectionDraft {
+  return {
+    photoFile: null,
+    pdfFile: null,
+    videoUrl: '',
+    linkUrl: '',
+    sourceOfLink: ''
+  };
+}
+
+function initialDrafts(): Record<SectionId, SectionDraft> {
+  return {
+    academic_advising: emptyDraft(),
+    registration: emptyDraft(),
+    scheduler: emptyDraft()
+  };
+}
+
+function normalizeHttpUrl(raw: string): string {
+  const t = raw.trim();
+  if (!t) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(t)) {
+    return t;
+  }
+  return `https://${t}`;
+}
+
+function parseSectionTitle(title: string): { sectionId: SectionId | null; shortLabel: string } {
+  const m = title.match(/^\[(academic_advising|registration|scheduler)\]\s*(.+)$/i);
+  if (!m) {
+    return { sectionId: null, shortLabel: title };
+  }
+  return { sectionId: m[1] as SectionId, shortLabel: m[2] };
+}
+
+function titlePrefix(sectionId: SectionId): string {
+  return `[${sectionId}]`;
 }
 
 export function AdvisorResources() {
@@ -43,15 +86,23 @@ export function AdvisorResources() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [activeTypeTab, setActiveTypeTab] = useState('All');
-  const [form, setForm] = useState<AdvisorResourceInput>(initialForm);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedThumbnailFile, setSelectedThumbnailFile] = useState<File | null>(null);
-  const [editingRecord, setEditingRecord] = useState<AdvisorResourceRecord | null>(null);
+  const [activeSection, setActiveSection] = useState<SectionId>('academic_advising');
+  const [drafts, setDrafts] = useState<Record<SectionId, SectionDraft>>(initialDrafts);
   const [deleteTarget, setDeleteTarget] = useState<AdvisorResourceRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const typeTabs = ['All', 'File', 'Video', 'Link'];
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const draft = drafts[activeSection];
+  const sectionLabel = SECTIONS.find((s) => s.id === activeSection)?.label ?? activeSection;
+
+  const setDraftField = <K extends keyof SectionDraft>(field: K, value: SectionDraft[K]) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [activeSection]: { ...prev[activeSection], [field]: value }
+    }));
+  };
 
   useEffect(() => {
     void loadResources();
@@ -71,49 +122,100 @@ export function AdvisorResources() {
     }
   }
 
-  function resetForm(): void {
-    setForm(initialForm);
-    setSelectedFile(null);
-    setSelectedThumbnailFile(null);
-    setEditingRecord(null);
-    setSubmitError('');
-  }
+  const sectionRecords = useMemo(() => {
+    const prefix = titlePrefix(activeSection);
+    return records.filter((r) => r.title.startsWith(prefix));
+  }, [records, activeSection]);
 
-  function startEdit(record: AdvisorResourceRecord): void {
-    setEditingRecord(record);
-    setSubmitError('');
-    setSelectedFile(null);
-    setSelectedThumbnailFile(null);
-    setForm({
-      title: record.title,
-      description: record.description ?? '',
-      resourceType: record.resource_type,
-      resourceUrl: record.resource_url ?? '',
-      duration: record.duration ?? ''
-    });
-  }
+  const totalPages = Math.max(1, Math.ceil(sectionRecords.length / ITEMS_PER_PAGE));
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sectionRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, sectionRecords]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeSection]);
+
+  async function handleSaveSection(): Promise<void> {
+    const d = drafts[activeSection];
+    const desc = d.sourceOfLink.trim() || '';
+    const prefix = titlePrefix(activeSection);
+
+    const hasPdf = Boolean(d.pdfFile);
+    const hasPhotoOnly = Boolean(d.photoFile) && !d.videoUrl.trim();
+    const hasVideo = Boolean(d.videoUrl.trim());
+    const hasLink = Boolean(d.linkUrl.trim());
+
+    if (!hasPdf && !hasPhotoOnly && !hasVideo && !hasLink) {
+      setSubmitError('Add at least one of: PDF, photo, video URL, or link URL.');
+      return;
+    }
+
+    setIsSaving(true);
+    setSubmitError('');
+
+    const description = desc || undefined;
 
     try {
-      setIsSaving(true);
-      setSubmitError('');
-
-      if (editingRecord) {
-        await updateAdvisorResource(editingRecord.id, form, {
-          file: selectedFile,
-          thumbnailFile: selectedThumbnailFile,
-          existingRecord: editingRecord
-        });
-      } else {
-        await createAdvisorResource(form, selectedFile, selectedThumbnailFile);
+      if (hasPdf && d.pdfFile) {
+        const input: AdvisorResourceInput = {
+          title: `${prefix} PDF`,
+          description: desc,
+          resourceType: 'file',
+          resourceUrl: '',
+          duration: ''
+        };
+        await createAdvisorResource(input, d.pdfFile, null);
       }
 
+      if (d.photoFile && !hasVideo) {
+        const input: AdvisorResourceInput = {
+          title: `${prefix} Photo`,
+          description: desc,
+          resourceType: 'file',
+          resourceUrl: '',
+          duration: ''
+        };
+        await createAdvisorResource(input, d.photoFile, null);
+      }
+
+      if (hasVideo) {
+        const url = normalizeHttpUrl(d.videoUrl);
+        const input: AdvisorResourceInput = {
+          title: `${prefix} Video`,
+          description: desc,
+          resourceType: 'video',
+          resourceUrl: url,
+          duration: ''
+        };
+        const thumb = d.photoFile ?? null;
+        await createAdvisorResource(input, null, thumb);
+      }
+
+      if (hasLink) {
+        const url = normalizeHttpUrl(d.linkUrl);
+        const input: AdvisorResourceInput = {
+          title: `${prefix} Link`,
+          description: desc,
+          resourceType: 'link',
+          resourceUrl: url,
+          duration: ''
+        };
+        await createAdvisorResource(input, null, null);
+      }
+
+      setDrafts((prev) => ({ ...prev, [activeSection]: emptyDraft() }));
+      if (photoInputRef.current) {
+        photoInputRef.current.value = '';
+      }
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = '';
+      }
       await loadResources();
-      resetForm();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to save advisor resource.');
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save one or more resources.');
     } finally {
       setIsSaving(false);
     }
@@ -127,9 +229,6 @@ export function AdvisorResources() {
     try {
       setSubmitError('');
       await deleteAdvisorResource(deleteTarget);
-      if (editingRecord?.id === deleteTarget.id) {
-        resetForm();
-      }
       setDeleteTarget(null);
       await loadResources();
     } catch (error) {
@@ -137,32 +236,25 @@ export function AdvisorResources() {
     }
   }
 
-  const filteredRecords = useMemo(() => {
-    return records.filter((record) => activeTypeTab === 'All' || record.resource_type === activeTypeTab.toLowerCase());
-  }, [activeTypeTab, records]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / ITEMS_PER_PAGE));
-
-  const paginatedRecords = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [currentPage, filteredRecords]);
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <h1 className="text-2xl font-bold text-must-text-primary">Advisor Resources</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-must-text-primary">Advising resources</h1>
+        <p className="text-sm text-must-text-secondary mt-1 max-w-2xl">
+          Each area has its own form: upload a photo and/or PDF, add a video URL and/or link URL, and note the source of the
+          link. Saving creates one entry per filled item for that section.
+        </p>
+      </div>
 
-      <div className="flex border-b border-must-border overflow-x-auto">
-        {typeTabs.map((tab) => (
+      <div className="flex border-b border-must-border overflow-x-auto gap-1">
+        {SECTIONS.map((s) => (
           <button
-            key={tab}
-            onClick={() => {
-              setActiveTypeTab(tab);
-              setCurrentPage(1);
-            }}
-            className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTypeTab === tab ? 'border-must-green text-must-green' : 'border-transparent text-must-text-secondary hover:text-must-text-primary hover:border-slate-300'}`}
+            key={s.id}
+            type="button"
+            onClick={() => setActiveSection(s.id)}
+            className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeSection === s.id ? 'border-must-green text-must-green' : 'border-transparent text-must-text-secondary hover:text-must-text-primary hover:border-slate-300'}`}
           >
-            {tab}
+            {s.label}
           </button>
         ))}
       </div>
@@ -171,179 +263,164 @@ export function AdvisorResources() {
         <Card className="xl:col-span-2 h-fit">
           <CardHeader className="flex flex-row items-center gap-2">
             <GraduationCapIcon className="w-5 h-5 text-must-green" />
-            <h2 className="text-lg font-semibold text-must-text-primary">
-              {editingRecord ? 'Edit Resource' : 'Add Resource'}
-            </h2>
+            <h2 className="text-lg font-semibold text-must-text-primary">{sectionLabel}</h2>
           </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <Input
-                label="Title"
-                value={form.title}
-                onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                placeholder="Enter resource title"
-                required
+          <CardContent className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-must-text-primary mb-2">Photo (image)</label>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => setDraftField('photoFile', e.target.files?.[0] ?? null)}
               />
+              <Button type="button" variant="outline" size="sm" icon={<ImageIcon className="w-4 h-4" />} onClick={() => photoInputRef.current?.click()}>
+                Choose photo
+              </Button>
+              {draft.photoFile ? <p className="text-xs text-must-text-secondary mt-2 break-all">{draft.photoFile.name}</p> : null}
+              {draft.photoFile && draft.videoUrl.trim() ? (
+                <p className="text-xs text-must-text-secondary mt-1">Photo will be used as the video thumbnail when a video URL is set.</p>
+              ) : null}
+            </div>
 
-              <Input
-                label="Description (Optional)"
-                value={form.description}
-                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="Short description shown under title"
+            <div>
+              <label className="block text-sm font-medium text-must-text-primary mb-2">PDF</label>
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => setDraftField('pdfFile', e.target.files?.[0] ?? null)}
               />
+              <Button type="button" variant="outline" size="sm" icon={<FileTextIcon className="w-4 h-4" />} onClick={() => pdfInputRef.current?.click()}>
+                Choose PDF
+              </Button>
+              {draft.pdfFile ? <p className="text-xs text-must-text-secondary mt-2 break-all">{draft.pdfFile.name}</p> : null}
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-must-text-primary mb-1">Resource Type</label>
-                <select
-                  value={form.resourceType}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, resourceType: event.target.value as AdvisorResourceInput['resourceType'] }))
+            <Input
+              label="Video URL"
+              type="url"
+              value={draft.videoUrl}
+              onChange={(e) => setDraftField('videoUrl', e.target.value)}
+              placeholder="https://..."
+              icon={<PlayCircleIcon className="w-4 h-4" />}
+            />
+
+            <Input
+              label="Link URL"
+              type="url"
+              value={draft.linkUrl}
+              onChange={(e) => setDraftField('linkUrl', e.target.value)}
+              placeholder="https://..."
+              icon={<LinkIcon className="w-4 h-4" />}
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-must-text-primary mb-1">Source of link</label>
+              <textarea
+                value={draft.sourceOfLink}
+                onChange={(e) => setDraftField('sourceOfLink', e.target.value)}
+                placeholder="e.g. official faculty page, document name, publisher…"
+                rows={3}
+                className="w-full rounded-lg border border-must-border bg-must-surface text-must-text-primary px-4 py-2 text-sm focus:ring-2 focus:ring-must-green outline-none resize-y"
+              />
+            </div>
+
+            {submitError ? <p className="text-sm text-red-500">{submitError}</p> : null}
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button type="button" disabled={isSaving} onClick={() => void handleSaveSection()}>
+                {isSaving ? 'Saving…' : 'Save for this section'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSaving}
+                onClick={() => {
+                  setDraftField('photoFile', null);
+                  setDraftField('pdfFile', null);
+                  setDraftField('videoUrl', '');
+                  setDraftField('linkUrl', '');
+                  setDraftField('sourceOfLink', '');
+                  if (photoInputRef.current) {
+                    photoInputRef.current.value = '';
                   }
-                  className="w-full rounded-lg border border-must-border bg-must-surface text-must-text-primary px-4 py-2 text-sm focus:ring-2 focus:ring-must-green outline-none"
-                >
-                  {advisorResourceTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {labelizeType(type)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {form.resourceType === 'file' ? (
-                <div>
-                  <label className="block text-sm font-medium text-must-text-primary mb-2">File</label>
-                  <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
-                    <UploadIcon className="w-4 h-4" />
-                    <span className="text-sm">Choose file</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                      required={!editingRecord}
-                    />
-                  </label>
-                  <p className="mt-2 text-xs text-must-text-secondary">
-                    {selectedFile ? selectedFile.name : editingRecord ? 'Current file kept unless replaced' : 'No file selected'}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <Input
-                    label={form.resourceType === 'video' ? 'Video URL' : 'Link URL'}
-                    type="url"
-                    value={form.resourceUrl}
-                    onChange={(event) => setForm((prev) => ({ ...prev, resourceUrl: event.target.value }))}
-                    placeholder="https://..."
-                    icon={<LinkIcon className="w-4 h-4" />}
-                    required
-                  />
-
-                  {form.resourceType === 'video' ?
-                  <>
-                      <Input
-                        label="Duration (Optional)"
-                        value={form.duration}
-                        onChange={(event) => setForm((prev) => ({ ...prev, duration: event.target.value }))}
-                        placeholder="e.g. 12:30"
-                      />
-
-                      <div>
-                        <label className="block text-sm font-medium text-must-text-primary mb-2">Thumbnail (Optional)</label>
-                        <label className="flex items-center justify-center gap-2 w-full px-4 py-4 border border-dashed border-must-border rounded-lg bg-slate-50 dark:bg-slate-800/40 text-must-text-secondary hover:text-must-text-primary hover:border-must-green transition-colors cursor-pointer">
-                          <UploadIcon className="w-4 h-4" />
-                          <span className="text-sm">Choose thumbnail image</span>
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            className="hidden"
-                            onChange={(event) => setSelectedThumbnailFile(event.target.files?.[0] ?? null)}
-                          />
-                        </label>
-                        <p className="mt-2 text-xs text-must-text-secondary">
-                          {selectedThumbnailFile ?
-                          selectedThumbnailFile.name :
-                          editingRecord?.thumbnail_path ?
-                          'Current thumbnail kept unless replaced' :
-                          'No thumbnail selected'}
-                        </p>
-                      </div>
-                    </> :
-                  null}
-                </>
-              )}
-
-              {submitError ? <p className="text-sm text-red-500">{submitError}</p> : null}
-
-              <div className="flex gap-3 pt-1">
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : editingRecord ? 'Update Resource' : 'Add Resource'}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm} disabled={isSaving}>
-                  {editingRecord ? 'Cancel Edit' : 'Clear'}
-                </Button>
-              </div>
-            </form>
+                  if (pdfInputRef.current) {
+                    pdfInputRef.current.value = '';
+                  }
+                  setSubmitError('');
+                }}
+              >
+                Clear form
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
         <div className="xl:col-span-3 space-y-4">
+          <h3 className="text-sm font-medium text-must-text-secondary">
+            Saved items — {sectionLabel} ({sectionRecords.length})
+          </h3>
+
           {isLoading ? (
             <Card>
               <CardContent className="p-6 text-sm text-must-text-secondary">Loading resources...</CardContent>
             </Card>
           ) : null}
 
-          {!isLoading && records.length === 0 ? (
+          {!isLoading && sectionRecords.length === 0 ? (
             <Card>
-              <CardContent className="p-6 text-sm text-must-text-secondary">No advisor resources found yet.</CardContent>
+              <CardContent className="p-6 text-sm text-must-text-secondary">No resources for this section yet.</CardContent>
             </Card>
           ) : null}
 
-          {!isLoading ? (
+          {!isLoading && sectionRecords.length > 0 ? (
             <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {paginatedRecords.map((record) => {
-                const fileUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.file_path);
-                const thumbnailUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.thumbnail_path);
-                const actionUrl = record.resource_type === 'file' ? fileUrl : record.resource_url;
-                const isFileResource = record.resource_type === 'file';
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {paginatedRecords.map((record) => {
+                  const { shortLabel } = parseSectionTitle(record.title);
+                  const fileUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.file_path);
+                  const thumbnailUrl = getPublicFileUrl(supabaseResourcesFilesBucket, record.thumbnail_path);
+                  const actionUrl = record.resource_type === 'file' ? fileUrl : record.resource_url;
+                  const isFileResource = record.resource_type === 'file';
 
-                return (
-                  <Card key={record.id}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-must-text-secondary">
-                          {record.resource_type === 'video' ? (
-                            <PlayCircleIcon className="w-5 h-5" />
-                          ) : record.resource_type === 'link' ? (
-                            <LinkIcon className="w-5 h-5" />
-                          ) : (
-                            <FileTextIcon className="w-5 h-5" />
-                          )}
+                  return (
+                    <Card key={record.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-must-text-secondary">
+                            {record.resource_type === 'video' ? (
+                              <PlayCircleIcon className="w-5 h-5" />
+                            ) : record.resource_type === 'link' ? (
+                              <LinkIcon className="w-5 h-5" />
+                            ) : (
+                              <FileTextIcon className="w-5 h-5" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-must-text-primary truncate">{shortLabel}</h3>
+                            {record.description ? (
+                              <p className="text-xs text-must-text-secondary mt-1 line-clamp-3">
+                                <span className="font-medium text-must-text-primary">Source: </span>
+                                {record.description}
+                              </p>
+                            ) : null}
+                            <p className="text-xs text-must-text-secondary mt-1 capitalize">{record.resource_type}</p>
+                          </div>
                         </div>
 
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-must-text-primary truncate">{record.title}</h3>
-                          {record.description ? <p className="text-xs text-must-text-secondary mt-1 line-clamp-2">{record.description}</p> : null}
-                          <p className="text-xs text-must-text-secondary mt-1 capitalize">{record.resource_type}</p>
-                          {record.resource_type === 'video' && record.duration ?
-                          <p className="text-xs text-must-text-secondary mt-1">Duration: {record.duration}</p> :
-                          null}
-                        </div>
-                      </div>
+                        {record.resource_type === 'video' && thumbnailUrl ? (
+                          <img
+                            src={thumbnailUrl}
+                            alt=""
+                            className="mt-3 w-full h-32 object-cover rounded-lg border border-must-border"
+                          />
+                        ) : null}
 
-                      {record.resource_type === 'video' && thumbnailUrl ?
-                      <img
-                        src={thumbnailUrl}
-                        alt={`${record.title} thumbnail`}
-                        className="mt-3 w-full h-32 object-cover rounded-lg border border-must-border" /> :
-                      null}
-
-                      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-must-border bg-slate-50/70 p-3 dark:bg-slate-800/30 sm:flex-row sm:items-center sm:justify-between">
-                        <Button type="button" size="sm" variant="outline" onClick={() => startEdit(record)}>
-                          Edit Resource
-                        </Button>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="mt-4 flex flex-wrap gap-2">
                           <Button
                             type="button"
                             size="sm"
@@ -356,31 +433,24 @@ export function AdvisorResources() {
                               }
                             }}
                           >
-                            {isFileResource ? 'Download' : 'Open Link'}
+                            {isFileResource ? 'Open / download' : 'Open link'}
                           </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="danger"
-                            icon={<Trash2Icon className="w-4 h-4" />}
-                            onClick={() => setDeleteTarget(record)}
-                          >
+                          <Button type="button" size="sm" variant="danger" icon={<Trash2Icon className="w-4 h-4" />} onClick={() => setDeleteTarget(record)}>
                             Delete
                           </Button>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
+                      </CardContent>
+                    </Card>
+                  );
                 })}
-            </div>
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={filteredRecords.length}
-              itemLabel="resources"
-              onPageChange={setCurrentPage}
-            />
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={sectionRecords.length}
+                itemLabel="resources"
+                onPageChange={setCurrentPage}
+              />
             </>
           ) : null}
         </div>
@@ -388,7 +458,7 @@ export function AdvisorResources() {
 
       <ConfirmModal
         isOpen={Boolean(deleteTarget)}
-        title="Delete Resource"
+        title="Delete resource"
         message="This will permanently delete the resource. This action cannot be undone."
         confirmLabel="Delete"
         onCancel={() => setDeleteTarget(null)}

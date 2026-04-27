@@ -127,6 +127,38 @@ export async function createStudent(input: StudentInput): Promise<void> {
   }
 }
 
+export async function updateStudentStatus(
+  studentId: string,
+  status: StudentStatus
+): Promise<void> {
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  if (!studentId.trim()) {
+    throw new Error('Student ID is required.');
+  }
+
+  if (!studentStatuses.includes(status)) {
+    throw new Error('Please select a valid student status.');
+  }
+
+  const { error } = await supabase
+    .from(supabaseStudentsTable)
+    .update({
+      status,
+      updated_at: new Date().toISOString()
+    })
+    .eq('student_id', studentId.trim());
+
+  if (error) {
+    if (isMissingStudentsTable(error)) {
+      throw new Error('Students backend is not initialized yet. Run the SQL setup script first.');
+    }
+    throw new Error(`Failed to update student status: ${error.message}`);
+  }
+}
+
 export async function bulkUpsertStudents(inputs: StudentInput[]): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');

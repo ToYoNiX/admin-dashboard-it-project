@@ -10,13 +10,14 @@ import {
   validateFile
 } from './storageUtils';
 
-export const registrationVideoSourceTypes = ['youtube', 'upload'] as const;
+export const registrationVideoSourceTypes = ['video', 'link', 'file'] as const;
 export type RegistrationVideoSourceType = (typeof registrationVideoSourceTypes)[number];
+export type RegistrationVideoStoredSourceType = RegistrationVideoSourceType | 'youtube' | 'upload';
 
 export interface RegistrationVideoRecord {
   id: string;
   title: string;
-  source_type: RegistrationVideoSourceType;
+  source_type: RegistrationVideoStoredSourceType;
   youtube_url: string | null;
   video_path: string | null;
   created_at: string;
@@ -26,10 +27,11 @@ export interface RegistrationVideoRecord {
 export interface RegistrationVideoInput {
   title: string;
   sourceType: RegistrationVideoSourceType;
-  youtubeUrl: string;
+  sourceUrl: string;
 }
 
-const VIDEO_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+const VIDEO_FILE_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+const DOCUMENT_FILE_MIME_TYPES = ['application/pdf'];
 
 function assertInput(input: RegistrationVideoInput): void {
   if (!input.title.trim()) {
@@ -40,16 +42,24 @@ function assertInput(input: RegistrationVideoInput): void {
     throw new Error('Please select a valid source type.');
   }
 
-  if (input.sourceType === 'youtube' && !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(input.youtubeUrl.trim())) {
-    throw new Error('Please enter a valid YouTube link.');
+  if (input.sourceType === 'link' && !/^https?:\/\//i.test(input.sourceUrl.trim())) {
+    throw new Error('Please enter a valid source link.');
   }
 }
 
 function validateVideoFile(file: File): void {
   validateFile(file, {
     maxSizeInMb: 150,
-    allowedMimeTypes: VIDEO_MIME_TYPES,
-    label: 'Registration video'
+    allowedMimeTypes: VIDEO_FILE_MIME_TYPES,
+    label: 'Registration video file'
+  });
+}
+
+function validateDocumentFile(file: File): void {
+  validateFile(file, {
+    maxSizeInMb: 150,
+    allowedMimeTypes: DOCUMENT_FILE_MIME_TYPES,
+    label: 'Registration document file'
   });
 }
 
@@ -57,9 +67,9 @@ function isMissingTable(error: { code?: string; message?: string }): boolean {
   return error.code === 'PGRST205' || error.code === '42P01' || /registration_videos/i.test(error.message ?? '');
 }
 
-async function uploadRegistrationVideo(file: File, recordId: string): Promise<string> {
+async function uploadRegistrationSource(file: File, recordId: string): Promise<string> {
   const target = parseStorageTarget(supabaseResourcesFilesBucket, 'registration-videos');
-  return uploadFileToStorage(file, target, recordId, 'video');
+  return uploadFileToStorage(file, target, recordId, 'source');
 }
 
 export async function listRegistrationVideos(): Promise<RegistrationVideoRecord[]> {
@@ -84,7 +94,7 @@ export async function listRegistrationVideos(): Promise<RegistrationVideoRecord[
 
 export async function createRegistrationVideo(
   input: RegistrationVideoInput,
-  videoFile?: File | null
+  sourceFile?: File | null
 ): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
@@ -94,16 +104,22 @@ export async function createRegistrationVideo(
 
   const id = crypto.randomUUID();
   let videoPath: string | null = null;
-  let youtubeUrl: string | null = null;
+  let sourceUrl: string | null = null;
 
-  if (input.sourceType === 'upload') {
-    if (!videoFile) {
+  if (input.sourceType === 'video') {
+    if (!sourceFile) {
       throw new Error('Please upload a video file.');
     }
-    validateVideoFile(videoFile);
-    videoPath = await uploadRegistrationVideo(videoFile, id);
+    validateVideoFile(sourceFile);
+    videoPath = await uploadRegistrationSource(sourceFile, id);
+  } else if (input.sourceType === 'file') {
+    if (!sourceFile) {
+      throw new Error('Please upload a file.');
+    }
+    validateDocumentFile(sourceFile);
+    videoPath = await uploadRegistrationSource(sourceFile, id);
   } else {
-    youtubeUrl = input.youtubeUrl.trim();
+    sourceUrl = input.sourceUrl.trim();
   }
 
   const now = new Date().toISOString();
@@ -111,7 +127,7 @@ export async function createRegistrationVideo(
     id,
     title: input.title.trim(),
     source_type: input.sourceType,
-    youtube_url: youtubeUrl,
+    youtube_url: sourceUrl,
     video_path: videoPath,
     created_at: now,
     updated_at: now

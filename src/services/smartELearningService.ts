@@ -10,13 +10,14 @@ import {
   validateFile
 } from './storageUtils';
 
-export const smartELearningSourceTypes = ['youtube', 'upload'] as const;
+export const smartELearningSourceTypes = ['video', 'link', 'file'] as const;
 export type SmartELearningSourceType = (typeof smartELearningSourceTypes)[number];
+export type SmartELearningStoredSourceType = SmartELearningSourceType | 'youtube' | 'upload';
 
 export interface SmartELearningRecord {
   id: string;
   title: string;
-  source_type: SmartELearningSourceType;
+  source_type: SmartELearningStoredSourceType;
   youtube_url: string | null;
   video_path: string | null;
   created_at: string;
@@ -26,10 +27,11 @@ export interface SmartELearningRecord {
 export interface SmartELearningInput {
   title: string;
   sourceType: SmartELearningSourceType;
-  youtubeUrl: string;
+  sourceUrl: string;
 }
 
-const VIDEO_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+const VIDEO_FILE_MIME_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+const DOCUMENT_FILE_MIME_TYPES = ['application/pdf'];
 
 function assertInput(input: SmartELearningInput): void {
   if (!input.title.trim()) {
@@ -40,16 +42,24 @@ function assertInput(input: SmartELearningInput): void {
     throw new Error('Please select a valid source type.');
   }
 
-  if (input.sourceType === 'youtube' && !/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(input.youtubeUrl.trim())) {
-    throw new Error('Please enter a valid YouTube link.');
+  if (input.sourceType === 'link' && !/^https?:\/\//i.test(input.sourceUrl.trim())) {
+    throw new Error('Please enter a valid source link.');
   }
 }
 
 function validateVideoFile(file: File): void {
   validateFile(file, {
     maxSizeInMb: 150,
-    allowedMimeTypes: VIDEO_MIME_TYPES,
-    label: 'Smart E-Learning video'
+    allowedMimeTypes: VIDEO_FILE_MIME_TYPES,
+    label: 'Smart E-Learning video file'
+  });
+}
+
+function validateDocumentFile(file: File): void {
+  validateFile(file, {
+    maxSizeInMb: 150,
+    allowedMimeTypes: DOCUMENT_FILE_MIME_TYPES,
+    label: 'Smart E-Learning document file'
   });
 }
 
@@ -57,9 +67,9 @@ function isMissingTable(error: { code?: string; message?: string }): boolean {
   return error.code === 'PGRST205' || error.code === '42P01' || /smart_elearning_videos/i.test(error.message ?? '');
 }
 
-async function uploadVideo(file: File, recordId: string): Promise<string> {
+async function uploadSource(file: File, recordId: string): Promise<string> {
   const target = parseStorageTarget(supabaseResourcesFilesBucket, 'smart-elearning');
-  return uploadFileToStorage(file, target, recordId, 'video');
+  return uploadFileToStorage(file, target, recordId, 'source');
 }
 
 export async function listSmartELearningVideos(): Promise<SmartELearningRecord[]> {
@@ -82,7 +92,7 @@ export async function listSmartELearningVideos(): Promise<SmartELearningRecord[]
   return (data ?? []) as SmartELearningRecord[];
 }
 
-export async function createSmartELearningVideo(input: SmartELearningInput, videoFile?: File | null): Promise<void> {
+export async function createSmartELearningVideo(input: SmartELearningInput, sourceFile?: File | null): Promise<void> {
   if (!supabase) {
     throw new Error('Supabase is not configured.');
   }
@@ -91,16 +101,22 @@ export async function createSmartELearningVideo(input: SmartELearningInput, vide
 
   const id = crypto.randomUUID();
   let videoPath: string | null = null;
-  let youtubeUrl: string | null = null;
+  let sourceUrl: string | null = null;
 
-  if (input.sourceType === 'upload') {
-    if (!videoFile) {
+  if (input.sourceType === 'video') {
+    if (!sourceFile) {
       throw new Error('Please upload a video file.');
     }
-    validateVideoFile(videoFile);
-    videoPath = await uploadVideo(videoFile, id);
+    validateVideoFile(sourceFile);
+    videoPath = await uploadSource(sourceFile, id);
+  } else if (input.sourceType === 'file') {
+    if (!sourceFile) {
+      throw new Error('Please upload a file.');
+    }
+    validateDocumentFile(sourceFile);
+    videoPath = await uploadSource(sourceFile, id);
   } else {
-    youtubeUrl = input.youtubeUrl.trim();
+    sourceUrl = input.sourceUrl.trim();
   }
 
   const now = new Date().toISOString();
@@ -108,7 +124,7 @@ export async function createSmartELearningVideo(input: SmartELearningInput, vide
     id,
     title: input.title.trim(),
     source_type: input.sourceType,
-    youtube_url: youtubeUrl,
+    youtube_url: sourceUrl,
     video_path: videoPath,
     created_at: now,
     updated_at: now
